@@ -46,7 +46,14 @@ async def run_llm(req: LLMRequest):
             filename = os.path.basename(full_path).replace(".md", "")
             context += "-filename-" + filename + "-End filename- \n"
         if doc.metadata.get("source") == "transcriptions":
-            context += "Player: " + doc.metadata.get("player_id") + "; Content: " + doc.page_content + "\n\n"
+            context += "Player: " + doc.metadata.get("player_id") + "; "
+            temporal_entities = doc.metadata.get("temporal_entities")
+            location_entities = doc.metadata.get("location_entities")
+            if temporal_entities:
+                context += "Time entities: " + temporal_entities + "; "
+            if location_entities:
+                context += "Location entities: " + location_entities + "; "
+            context += "Content: " + doc.page_content + "\n\n"
         else:
             context += doc.page_content + "\n\n"
 

@@ -9,6 +9,7 @@ import numpy as np
 from typing import List, Tuple
 from uuid import UUID
 import time
+from app.functions.embedding.entity_extractor import entities_as_metadata
 
 
 def embedding_search(query: str, source=False, persist_directory=None):
@@ -78,16 +79,21 @@ def embedd_transcriptions(embedding_text: list, speakers: list[str], persist_dir
         model_name=settings.embedding_model
     )
 
-    documents = [
-        Document(
-            page_content=text,
-            metadata={"source": "transcriptions",
-                      "player_id": speakers[i],
-                      "session_id": "none",  # Update here later
-                      "path": "none"}
+    documents = []
+    for i, text in enumerate(embedding_text):
+        entity_metadata = entities_as_metadata(text)
+        documents.append(
+            Document(
+                page_content=text,
+                metadata={
+                    "source": "transcriptions",
+                    "player_id": speakers[i],
+                    "session_id": "none",  # Update here later
+                    "path": "none",
+                    **entity_metadata,
+                },
+            )
         )
-        for i, text in enumerate(embedding_text)
-    ]
 
     write_to_ChromaDB(persist_directory, documents, embedding_model)
 

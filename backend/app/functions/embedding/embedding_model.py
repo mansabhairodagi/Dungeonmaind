@@ -64,6 +64,31 @@ def embedding_search(query: str, source=False, persist_directory=None):
     return results
 
 
+def get_all_transcription_documents(persist_directory=None) -> list[Document]:
+    if persist_directory is None:
+        persist_directory = settings.chroma_db_path
+
+    embedding_model = SentenceTransformerEmbeddings(
+        model_name=settings.embedding_model
+    )
+
+    vectorstore = Chroma(
+        persist_directory=persist_directory,
+        embedding_function=embedding_model,
+    )
+    entries = vectorstore._collection.get(
+        where={"source": "transcriptions"},
+        include=["documents", "metadatas"],
+    )
+
+    documents = entries.get("documents") or []
+    metadatas = entries.get("metadatas") or []
+    return [
+        Document(page_content=document, metadata=metadata or {})
+        for document, metadata in zip(documents, metadatas)
+    ]
+
+
 def embedd_transcriptions(embedding_text: list, speakers: list[str], persist_directory=None):
 
     if persist_directory is None:
@@ -81,7 +106,7 @@ def embedd_transcriptions(embedding_text: list, speakers: list[str], persist_dir
 
     documents = []
     for i, text in enumerate(embedding_text):
-        entity_metadata = entities_as_metadata(text)
+        entity_metadata = entities_as_metadata(text, use_llm=settings.entity_llm_fallback)
         documents.append(
             Document(
                 page_content=text,

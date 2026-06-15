@@ -1,6 +1,7 @@
 import unittest
+from unittest.mock import patch
 
-from app.functions.embedding.entity_extractor import extract_entities
+from app.functions.embedding.entity_extractor import ExtractedEntities, extract_entities, extract_entities_hybrid
 
 
 DOCX_CASES = [
@@ -177,6 +178,59 @@ class EntityExtractorTests(unittest.TestCase):
                 entities = extract_entities(case["text"])
                 self.assertEqual(casefold_list(case["temporal"]), casefold_list(entities.temporal_entities))
                 self.assertEqual(casefold_list(case["location"]), casefold_list(entities.location_entities))
+
+    def test_hybrid_adds_llm_entities_without_replacing_rule_entities(self):
+        with patch(
+            "app.functions.embedding.entity_extractor._extract_entities_with_local_llm",
+            return_value=ExtractedEntities(
+                temporal_entities=["after the blood moon"],
+                location_entities=["Zarathul", "Misty Hollow"],
+            ),
+        ):
+            entities = extract_entities_hybrid(
+                "Tomorrow, after the blood moon, the party reaches Zarathul near Misty Hollow.",
+                use_llm=True,
+            )
+
+        self.assertIn("Tomorrow", entities.temporal_entities)
+        self.assertIn("after the blood moon", entities.temporal_entities)
+        self.assertIn("Zarathul", entities.location_entities)
+        self.assertIn("Misty Hollow", entities.location_entities)
+
+    def test_hybrid_rejects_llm_descriptions_and_wrong_categories(self):
+        text = (
+            "For the past 2 weeks, the party gathered at Yoon Shrine in the Dominion of Arkhenfall "
+            "on the Frostpire Peninsula. Between sunrise and noon, they sailed toward the Isle of Silent Tides "
+            "after receiving reports from the Kingdom of Elendra."
+        )
+
+        with patch(
+            "app.functions.embedding.entity_extractor._extract_entities_with_local_llm",
+            return_value=ExtractedEntities(
+                temporal_entities=[
+                    "Yoon Shrine: A place that has been actively gathering information for the past 2 weeks.",
+                    "Representative from Dominion of Arkhenfall",
+                    "Before Sunset",
+                ],
+                location_entities=[
+                    "Yoon Shrine: A grand observatory nestled within the Dominion of Arkhenfall.",
+                    "Frostpire Peninsula: A remote, icy peninsula.",
+                    "Isle of Silent Tides: A small, desolate island.",
+                    "Kingdom of Elendra: A maritime kingdom.",
+                ],
+            ),
+        ):
+            entities = extract_entities_hybrid(text, use_llm=True)
+
+        self.assertIn("For the past 2 weeks", entities.temporal_entities)
+        self.assertIn("Between sunrise and noon", entities.temporal_entities)
+        self.assertNotIn("Yoon Shrine", entities.temporal_entities)
+        self.assertNotIn("Representative from Dominion of Arkhenfall", entities.temporal_entities)
+        self.assertIn("Yoon Shrine", entities.location_entities)
+        self.assertIn("Frostpire Peninsula", entities.location_entities)
+        self.assertIn("Isle of Silent Tides", entities.location_entities)
+        self.assertIn("Kingdom of Elendra", entities.location_entities)
+        self.assertFalse(any(":" in entity for entity in entities.location_entities))
 
 
 if __name__ == "__main__":

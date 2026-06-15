@@ -1,11 +1,29 @@
 import re
+import json
 from dataclasses import dataclass
+from typing import Any
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 
 @dataclass(frozen=True)
 class ExtractedEntities:
     temporal_entities: list[str]
     location_entities: list[str]
+
+
+LLM_ENTITY_SYSTEM_PROMPT = (
+    "You extract temporal and location entities from Dungeons and Dragons session text. "
+    "Return only valid JSON with two arrays: temporal_entities and location_entities. "
+    "Temporal entities are time-related phrases, dates, durations, clock times, relative times, "
+    "or event-relative times. Location entities are physical places, regions, buildings, rooms, "
+    "settlements, landmarks, fantasy place names, countries, cities, or named areas. "
+    "Do not include people, monsters, items, organizations, or actions unless they are part of a place name. "
+    "Every entity must be a short exact substring from the input text. "
+    "Do not include descriptions, definitions, sentences, explanations, or text after a colon. "
+    "Do not put locations in temporal_entities. Do not put temporal phrases in location_entities. "
+    "Do not explain. Do not ask questions."
+)
 
 
 MONTHS = (
@@ -53,6 +71,17 @@ RELATIVE_TIME_PHRASES = (
 )
 
 DOCX_TEMPORAL_PATTERNS = [
+    r"\b\d+\s+(?:minute|minutes|hour|hours|day|days|week|weeks|month|months|year|years)\s+after\b",
+    r"\b\d+\s+(?:minute|minutes|hour|hours|day|days|week|weeks|month|months|year|years)\s+before\b",
+    r"\bafter\s+several\s+hours\s+of\s+travel\b",
+    r"\bAt\s+approximately\s+\d{1,2}\.\d{2}\s*(?:AM|PM|am|pm)?\b",
+    r"\bAt\s+\d{3,4}\b",
+    r"\bAround\s+midday\b",
+    r"\bFollowing\s+morning\b",
+    r"\b(?:that|this)\s+evening\b",
+    r"\bDuring\s+the\s+night\b",
+    r"\bOne\s+hour\s+before\s+dawn\b",
+    r"\bbefore\s+sunset\s+on\s+(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b",
     r"\b(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s+morning\b",
     r"\bAround\s+noon\b",
     r"\bLater\s+that\s+afternoon\b",
@@ -67,8 +96,10 @@ DOCX_TEMPORAL_PATTERNS = [
     r"\bBefore\s+dawn\s+on\s+(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b",
     r"\bDuring\s+the\s+following\s+night\b",
     r"\bThree\s+weeks\s+after\b",
+    r"\bFor\s+the\s+past\s+\d+\s+(?:day|days|week|weeks|month|months|year|years)\b",
     rf"\b(?:the\s+)?morning\s+of\s+(?:{ '|'.join(MONTHS) })\s+\d{{1,2}},\s*\d{{4}}\b",
     r"\bBetween\s+sunset\s+and\s+midnight\b",
+    r"\bBetween\s+sunrise\s+and\s+noon\b",
     r"\bBy\s+the\s+end\s+of\s+the\s+month\b",
     r"\bBefore\s+the\s+beginning\s+of\s+the\s+next\s+year\b",
 ]
@@ -96,6 +127,7 @@ PLACE_NOUNS = (
     "barracks",
     "battlefield",
     "bay",
+    "barrens",
     "bridge",
     "brook",
     "camp",
@@ -103,6 +135,7 @@ PLACE_NOUNS = (
     "canyon",
     "castle",
     "cave",
+    "caverns",
     "cemetery",
     "chamber",
     "chapel",
@@ -137,10 +170,12 @@ PLACE_NOUNS = (
     "hills",
     "inn",
     "island",
+    "isle",
     "jungle",
     "keep",
     "kingdom",
     "lake",
+    "labyrinth",
     "library",
     "lair",
     "manor",
@@ -157,6 +192,7 @@ PLACE_NOUNS = (
     "palace",
     "pass",
     "path",
+    "peninsula",
     "plains",
     "port",
     "ravine",
@@ -189,6 +225,13 @@ PLACE_NOUNS = (
     "watchtower",
     "wood",
     "woods",
+    "dominion",
+    "observatory",
+    "shores",
+    "spires",
+    "reach",
+    "expanse",
+    "lips",
 )
 
 STANDALONE_PLACE_WORDS = (
@@ -276,6 +319,7 @@ LOCATION_VERBS = (
     "left",
     "reached",
     "returned",
+    "reach",
     "searched",
     "traveled",
     "travelled",
@@ -300,8 +344,21 @@ TEMPORAL_PATTERNS = [
     re.compile(r"\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b"),
     re.compile(r"\b(?:19|20)\d{2}\b"),
     re.compile(r"\b\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)?\b"),
+    re.compile(r"\b\d{1,2}\.\d{2}\s*(?:AM|PM|am|pm)\b", re.IGNORECASE),
     re.compile(r"(?<!:)\b\d{1,2}\s*(?:AM|PM|am|pm)\b"),
 ]
+
+TEMPORAL_SIGNAL_PATTERN = re.compile(
+    rf"\b("
+    rf"{_WEEKDAY_PATTERN}|{_MONTH_PATTERN}|"
+    r"today|yesterday|tomorrow|tonight|morning|noon|afternoon|evening|night|"
+    r"midnight|sunrise|sunset|dawn|dusk|week|weeks|month|months|year|years|"
+    r"day|days|hour|hours|minute|minutes|before|after|during|around|between|"
+    r"approximately|past|next|last|following"
+    r")\b|"
+    r"\b\d{1,2}:\d{2}\b|\b\d{1,2}\s*(?:AM|PM|am|pm)\b|\b(?:19|20)\d{2}\b",
+    re.IGNORECASE,
+)
 
 LOCATION_SUFFIXES = tuple(
     sorted(
@@ -316,12 +373,15 @@ LOCATION_SUFFIXES = tuple(
             "Harbor",
             "Hideout",
             "Hill",
+            "Isle",
             "Lake",
             "Pass",
+            "Peninsula",
             "Peak",
             "Plains",
             "River",
             "Road",
+            "Shrine",
             "Temple",
             "Town",
             "Valley",
@@ -337,6 +397,25 @@ _LOCATION_SUFFIX_PATTERN = "|".join(LOCATION_SUFFIXES)
 
 PROPER_LOCATION_PATTERN = re.compile(
     rf"\b[A-Z][A-Za-z'-]+(?:\s+[A-Z][A-Za-z'-]+){{0,3}}\s+(?:{_LOCATION_SUFFIX_PATTERN})\b"
+)
+
+NAMED_PLACE_NOUN_PATTERN = re.compile(
+    rf"\b(?i:(?:the\s+)?(?:(?:{_PLACE_NOUN_PATTERN})\s+of\s+|(?:{_PLACE_NOUN_PATTERN})\s+))"
+    r"([A-Z][A-Za-z'-]+(?:\s+[A-Z][A-Za-z'-]+){0,3})\b",
+)
+
+LOWERCASE_FANTASY_PLACE_PATTERN = re.compile(
+    r"\b(?:the\s+)?(?:floating\s+lips\s+of\s+[A-Za-z'-]+(?:\s+[A-Za-z'-]+){0,2}|"
+    r"crystal\s+expanse\s+of\s+[A-Za-z'-]+|"
+    r"obsidian\s+spires\s+of\s+[A-Za-z'-]+|"
+    r"fall\s+citadel|"
+    r"azure\s+labyrinth|"
+    r"pimple\s+of\s+[A-Za-z'-]+(?:\s+[A-Za-z'-]+){0,2})\b",
+    re.IGNORECASE,
+)
+
+KNOWN_AS_LOCATION_PATTERN = re.compile(
+    r"\bknown\s+as\s+([A-Z][A-Za-z'-]+(?:\s+[A-Z][A-Za-z'-]+){0,4})\b"
 )
 
 LOCAL_PLACE_PATTERN = re.compile(
@@ -398,6 +477,7 @@ NON_LOCATION_DESCRIPTORS = {
 
 LOCATION_DESCRIPTORS = {
     "ancient",
+    "azure",
     "black",
     "blue",
     "broken",
@@ -405,6 +485,7 @@ LOCATION_DESCRIPTORS = {
     "dark",
     "dead",
     "deep",
+    "dense",
     "dragon",
     "dwarven",
     "east",
@@ -417,6 +498,11 @@ LOCATION_DESCRIPTORS = {
     "hidden",
     "high",
     "haunted",
+    "crystal",
+    "floating",
+    "obsidian",
+    "roomed",
+    "ethyral",
     "lost",
     "lower",
     "misty",
@@ -599,6 +685,10 @@ def _filter_location_candidates(values: list[str]) -> list[str]:
             continue
         if any(word in RELATIVE_TIME_WORDS for word in lowered.split()):
             continue
+        if " and " in lowered:
+            continue
+        if any(word in {"before", "after", "towards", "toward", "prepared", "travelled", "traveled"} for word in lowered.split()):
+            continue
         if lowered in {month.casefold() for month in MONTHS}:
             continue
         filtered.append(candidate)
@@ -618,6 +708,167 @@ def _dedupe_preserving_order(values: list[str]) -> list[str]:
         seen.add(key)
         result.append(normalized)
     return result
+
+
+def _merge_entities(primary: list[str], secondary: list[str]) -> list[str]:
+    merged = list(primary)
+    seen = {value.casefold() for value in merged}
+    for value in secondary:
+        normalized = " ".join(str(value).strip().split())
+        if not normalized:
+            continue
+        key = normalized.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.append(normalized)
+    return merged
+
+
+def _safe_json_from_llm_response(content: str) -> dict[str, Any]:
+    content = content.strip()
+    if not content:
+        return {}
+
+    try:
+        parsed = json.loads(content)
+        return parsed if isinstance(parsed, dict) else {}
+    except json.JSONDecodeError:
+        pass
+
+    start = content.find("{")
+    end = content.rfind("}")
+    if start < 0 or end <= start:
+        return {}
+
+    try:
+        parsed = json.loads(content[start:end + 1])
+        return parsed if isinstance(parsed, dict) else {}
+    except json.JSONDecodeError:
+        return {}
+
+
+def _coerce_entity_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [
+        " ".join(str(item).strip().split())
+        for item in value
+        if str(item).strip()
+    ]
+
+
+def _strip_llm_description(value: str) -> str:
+    cleaned = " ".join(str(value).strip().split())
+    if ":" in cleaned:
+        cleaned = cleaned.split(":", 1)[0].strip()
+    if " - " in cleaned:
+        cleaned = cleaned.split(" - ", 1)[0].strip()
+    return cleaned.strip(" .,;:-")
+
+
+def _exact_text_span(value: str, text: str) -> str:
+    if not value:
+        return ""
+    match = re.search(re.escape(value), text, re.IGNORECASE)
+    if not match:
+        return ""
+    return text[match.start():match.end()]
+
+
+def _is_valid_temporal_entity(value: str, text: str) -> str:
+    cleaned = _strip_llm_description(value)
+    exact = _exact_text_span(cleaned, text)
+    if not exact:
+        return ""
+    if not TEMPORAL_SIGNAL_PATTERN.search(exact):
+        return ""
+    if len(exact.split()) > 10:
+        return ""
+    return exact
+
+
+def _is_valid_location_entity(value: str, text: str) -> str:
+    cleaned = _strip_llm_description(value)
+    exact = _exact_text_span(cleaned, text)
+    if not exact:
+        return ""
+    if TEMPORAL_SIGNAL_PATTERN.fullmatch(exact.strip()):
+        return ""
+    if any(char in exact for char in ".?!"):
+        return ""
+    if len(exact.split()) > 8:
+        return ""
+    if exact.casefold() in {"messenger", "representative", "royal family", "group", "party"}:
+        return ""
+    return exact
+
+
+def _sanitize_llm_entities(entities: ExtractedEntities, text: str) -> ExtractedEntities:
+    temporal_entities = _dedupe_preserving_order(
+        entity
+        for entity in (_is_valid_temporal_entity(value, text) for value in entities.temporal_entities)
+        if entity
+    )
+    location_entities = _dedupe_preserving_order(
+        entity
+        for entity in (_is_valid_location_entity(value, text) for value in entities.location_entities)
+        if entity
+    )
+    return ExtractedEntities(
+        temporal_entities=temporal_entities,
+        location_entities=location_entities,
+    )
+
+
+def _extract_entities_with_local_llm(text: str, timeout_seconds: float = 25.0) -> ExtractedEntities:
+    try:
+        from app.core.config import settings
+        llm_model = settings.llm_model
+        ollama_url = settings.ollama_url
+    except Exception:
+        llm_model = "hf.co/bartowski/mistralai_Ministral-3-3B-Instruct-2512-GGUF:Q5_K_M"
+        ollama_url = "http://localhost:11434"
+
+    payload = {
+        "model": llm_model,
+        "stream": False,
+        "messages": [
+            {"role": "system", "content": LLM_ENTITY_SYSTEM_PROMPT},
+            {
+                "role": "user",
+                "content": (
+                    "Extract temporal and location entities from this text.\n\n"
+                    f"TEXT:\n{text}\n\n"
+                    "Return JSON only, for example: "
+                    "{\"temporal_entities\": [\"...\"], \"location_entities\": [\"...\"]}"
+                ),
+            },
+        ],
+        "format": "json",
+    }
+
+    try:
+        request = Request(
+            f"{ollama_url}/api/chat",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urlopen(request, timeout=timeout_seconds) as response:
+            response_json = json.loads(response.read().decode("utf-8"))
+    except (HTTPError, URLError, TimeoutError, OSError, json.JSONDecodeError):
+        return ExtractedEntities(temporal_entities=[], location_entities=[])
+
+    message = response_json.get("message", {})
+    content = message.get("content", "") if isinstance(message, dict) else ""
+    parsed = _safe_json_from_llm_response(content)
+
+    extracted = ExtractedEntities(
+        temporal_entities=_coerce_entity_list(parsed.get("temporal_entities")),
+        location_entities=_coerce_entity_list(parsed.get("location_entities")),
+    )
+    return _sanitize_llm_entities(extracted, text)
 
 
 def _dedupe_spans_preserving_order(matches: list[tuple[int, int, str]]) -> list[str]:
@@ -725,6 +976,27 @@ def _location_matches_from_patterns(text: str) -> list[tuple[int, int, str]]:
             if normalized:
                 matches.append((match.start(), match.end(), normalized))
 
+    for pattern in (
+        NAMED_PLACE_NOUN_PATTERN,
+        LOWERCASE_FANTASY_PLACE_PATTERN,
+        KNOWN_AS_LOCATION_PATTERN,
+    ):
+        for match in pattern.finditer(text):
+            value = match.group(1) if pattern is KNOWN_AS_LOCATION_PATTERN else match.group(0)
+            normalized = _normalize_location_output(value)
+            if normalized:
+                matches.append((match.start(), match.end(), normalized))
+
+    for match in re.finditer(r"\blocations?\s+of\s+([A-Z][A-Za-z'-]+(?:\s+[A-Z][A-Za-z'-]+){0,3})\b", text):
+        normalized = _normalize_location_output(match.group(1))
+        if normalized:
+            matches.append((match.start(1), match.end(1), normalized))
+
+    for match in re.finditer(r"\bfall\s+of\s+([A-Z][A-Za-z'-]+(?:\s+[A-Z][A-Za-z'-]+){0,3})\b", text):
+        normalized = _normalize_location_output(match.group(1))
+        if normalized:
+            matches.append((match.start(1), match.end(1), normalized))
+
     for match in re.finditer(r"\b(?:an?\s+)?(?:abandoned\s+)?watchtower\b", text, re.IGNORECASE):
         matches.append((match.start(), match.end(), "Watchtower"))
 
@@ -752,8 +1024,26 @@ def extract_entities(text: str) -> ExtractedEntities:
     )
 
 
-def entities_as_metadata(text: str) -> dict[str, str]:
-    entities = extract_entities(text)
+def extract_entities_hybrid(text: str, use_llm: bool = True) -> ExtractedEntities:
+    rule_entities = extract_entities(text)
+    if not use_llm:
+        return rule_entities
+
+    llm_entities = _sanitize_llm_entities(_extract_entities_with_local_llm(text), text)
+    return ExtractedEntities(
+        temporal_entities=_merge_entities(
+            rule_entities.temporal_entities,
+            llm_entities.temporal_entities,
+        ),
+        location_entities=_merge_entities(
+            rule_entities.location_entities,
+            llm_entities.location_entities,
+        ),
+    )
+
+
+def entities_as_metadata(text: str, use_llm: bool = False) -> dict[str, str]:
+    entities = extract_entities_hybrid(text, use_llm=use_llm)
     return {
         "temporal_entities": ", ".join(entities.temporal_entities),
         "location_entities": ", ".join(entities.location_entities),

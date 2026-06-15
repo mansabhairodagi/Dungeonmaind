@@ -4,7 +4,7 @@ from pydantic import Field
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file="../.env", case_sensitive=False)
+    model_config = SettingsConfigDict(env_file=".env", case_sensitive=False)
     app_name: str = Field(
         default="Awesome API",
         validation_alias="APP_NAME",
@@ -38,6 +38,12 @@ class Settings(BaseSettings):
         description="The default LLM model used by the backend"
     )
 
+    ollama_url: str = Field(
+        default="http://localhost:11434",
+        validation_alias="OLLAMA_URL",
+        description="URL for local Ollama LLM server"
+    )
+
     transcription_model: str = Field(
         default="base",
         validation_alias="TRANSCRIPTION_MODEL",
@@ -54,6 +60,12 @@ class Settings(BaseSettings):
         default=6,
         validation_alias="EMBEDDING_TOP_K",
         description="Number of top_k embeddings (2-8)"
+    )
+
+    entity_llm_fallback: bool = Field(
+        default=True,
+        validation_alias="ENTITY_LLM_FALLBACK",
+        description="Enable local LLM fallback for temporal/location entity extraction during embedding"
     )
 
     backend_root_path: str = Field(

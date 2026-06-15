@@ -9,7 +9,7 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
-from app.functions.embedding.entity_extractor import entities_as_metadata, extract_entities
+from app.functions.embedding.entity_extractor import entities_as_metadata, extract_entities_hybrid
 
 
 DEFAULT_SAMPLES = [
@@ -63,9 +63,9 @@ def extract_docx_level_paragraphs(path: Path) -> list[str]:
     return levels or paragraphs
 
 
-def show_result(text: str) -> None:
-    entities = extract_entities(text)
-    metadata = entities_as_metadata(text)
+def show_result(text: str, use_llm: bool = False) -> None:
+    entities = extract_entities_hybrid(text, use_llm=use_llm)
+    metadata = entities_as_metadata(text, use_llm=use_llm)
 
     print("=" * 72)
     print("Text:")
@@ -90,6 +90,11 @@ def main() -> None:
         nargs="*",
         help="Optional text or .docx path to test. If omitted, built-in sample texts are used.",
     )
+    parser.add_argument(
+        "--llm",
+        action="store_true",
+        help="Use local Ollama fallback in addition to rule-based extraction.",
+    )
     args = parser.parse_args()
 
     if args.text:
@@ -103,7 +108,7 @@ def main() -> None:
         samples = DEFAULT_SAMPLES
 
     for sample in samples:
-        show_result(sample)
+        show_result(sample, use_llm=args.llm)
 
 
 if __name__ == "__main__":

@@ -6,12 +6,27 @@ from app.functions.llm.custom_model import run_custom_model
 from app.functions.llm.system_prompt import get_system_prompt
 from app.core.chat_store import chat_store
 from app.domain.store import store
-from app.functions.embedding.embedding_model import embedding_search, embed_text, embedding_search_on_chat_history
+from app.functions.embedding.embedding_model import (
+    embedding_search,
+    embed_text,
+    embedding_search_on_chat_history,
+    get_all_transcription_documents,
+)
 from app.functions.embedding.markdown_reader import read_markdown_file
 from app.core.config import settings
 
 
 router = APIRouter()
+
+
+def _is_entity_listing_request(text: str) -> bool:
+    normalized = text.casefold()
+    asks_for_entities = "entity" in normalized or "entities" in normalized
+    asks_for_time_or_place = any(
+        word in normalized
+        for word in ("temporal", "time", "location", "local", "place", "where", "when")
+    )
+    return asks_for_entities and asks_for_time_or_place
 
 
 @router.post("/run", response_class=StreamingResponse)
@@ -29,7 +44,10 @@ async def run_llm(req: LLMRequest):
     print("speichere nachricht")
 
     # 3) Embeddings erhalten für system prompt
-    retrieved_docs = embedding_search(req.input_string, req.use_rulebook)
+    if not req.use_rulebook and _is_entity_listing_request(req.input_string):
+        retrieved_docs = get_all_transcription_documents()
+    else:
+        retrieved_docs = embedding_search(req.input_string, req.use_rulebook)
 
     embedded_request = embed_text(req.input_string)
     top_k_chat_history = await embedding_search_on_chat_history(req.input_string, embedded_request, player.id)

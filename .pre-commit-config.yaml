@@ -14,8 +14,10 @@ repos:
     hooks:
       - id: trailing-whitespace
         files: \.(py|ts|vue|json|yaml|yml|md|toml)$
+        exclude: ^backend/data/markdowns/
       - id: end-of-file-fixer
         files: \.(py|ts|vue|json|yaml|yml|md|toml)$
+        exclude: ^backend/data/markdowns/
       - id: check-yaml
 
   # ──────────────────────────────────────────────

@@ -1,0 +1,20 @@
+from app.domain.models import TimelineEvent as DomainTimelineEvent
+from app.base_models.timeline_base_models import TimelineEventOut
+
+
+def timeline_event_to_out(event: DomainTimelineEvent) -> TimelineEventOut:
+    return TimelineEventOut(
+        id=event.id,
+        session_id=event.session_id,
+        title=event.title,
+        description=event.description,
+        event_type=event.event_type.value,
+        order=event.order,
+        timestamp=event.timestamp,
+        transcription_chunk_id=event.transcription_chunk_id,
+        player_id=event.player_id,
+        speaker_name=event.speaker_name,
+        temporal_entities=list(event.temporal_entities),
+        location_entities=list(event.location_entities),
+        created_at=event.created_at,
+    )

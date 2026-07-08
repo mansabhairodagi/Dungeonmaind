@@ -8,6 +8,56 @@ All processing is performed locally. No audio, transcripts, or campaign data are
 
 ---
 
+## Quick Start — Run End-to-End
+
+### Prerequisites
+- Python 3.12, Node.js (LTS), ffmpeg (on PATH), Git
+- (Optional) NVIDIA GPU with CUDA 12.8+ for faster transcription
+
+### 1. Clone and prepare
+```bash
+git clone https://github.com/FNitzsche/Dungeonmaind.git
+cd Dungeonmaind
+python -m venv .venv && source .venv/bin/activate
+pip install -r backend/requirements.txt
+cp backend/.env.example backend/.env
+# (Optional) Set HF_TOKEN in backend/.env for speaker diarization
+cd frontend && npm install && cd ..
+```
+
+### 2. Start the backend
+```bash
+source .venv/bin/activate
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+Open a **new terminal** for the next steps — the backend must keep running.
+
+### 3. Start Ollama (LLM)
+```bash
+ollama serve
+# In another terminal:
+ollama pull hf.co/bartowski/mistralai_Ministral-3-3B-Instruct-2512-GGUF:Q5_K_M
+```
+
+### 4. Start the frontend
+```bash
+cd frontend && npm run dev
+```
+
+### 5. Open and use
+- Open **http://localhost:5173** in your browser.
+- Click **Check/Set Connection** (default URL `http://localhost:8000`).
+- Click **Join as new Player** → choose **Leader** (only on localhost) → enter your local network IP and name → **Join**.
+- Record a session, then ask questions or visit **/timeline** to see generated events.
+
+### Alternative: Docker
+```bash
+docker compose up
+```
+Starts all three services (ollama, backend, frontend) at once.
+
+---
+
 ## Project Goal
 
 > DnD campaigns often span many sessions, making it difficult to remember details from past campaigns.

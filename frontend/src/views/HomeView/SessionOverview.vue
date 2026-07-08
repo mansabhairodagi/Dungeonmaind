@@ -4,7 +4,6 @@ import { useSessionStore } from '@/stores/session.ts'
 /** Holds Greeter */
 
 const store = useSessionStore()
-
 </script>
 
 <template>

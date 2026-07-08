@@ -19,13 +19,16 @@ export async function fetchConfig() {
 }
 
 export async function submitConfig(payload: Payload) {
-  const response = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.ENDPOINTS.CHANGE_CONFIG}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
+  const response = await fetch(
+    `${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.ENDPOINTS.CHANGE_CONFIG}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
     },
-    body: JSON.stringify(payload)
-  })
+  )
 
   if (!response.ok) {
     throw new Error(`Request failed with status ${response.status}`)

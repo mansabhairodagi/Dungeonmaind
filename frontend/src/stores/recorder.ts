@@ -1,11 +1,9 @@
-
 import { defineStore } from 'pinia'
 import { ref, computed, type Ref } from 'vue'
 import { useSessionStore } from '@/stores/session'
 import { SERVER_CONFIG } from '@/config/config'
 
 export const useRecorderStore = defineStore('recorder', () => {
-
   const micPermissionStatus = ref<string>('')
   const isRecording = ref<boolean>(false)
   const audioStream = ref<MediaStream | null>(null)
@@ -58,20 +56,21 @@ export const useRecorderStore = defineStore('recorder', () => {
     return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`
   })
 
-  function startTimer() { //timer for recorded audio
+  function startTimer() {
+    //timer for recorded audio
     stopTimer()
-  currentRecordingTime.value = 0
-  recordingStartTime.value = Date.now()
+    currentRecordingTime.value = 0
+    recordingStartTime.value = Date.now()
 
-  timerInterval.value = window.setInterval(() => {
-    if (recordingStartTime.value && isRecording.value) {
-      currentRecordingTime.value = Date.now() - recordingStartTime.value
-    } else if (!isRecording.value) {
-      // Auto-stop timer if recording stopped elsewhere
-      stopTimer()
-    }
-  }, 100)
-}
+    timerInterval.value = window.setInterval(() => {
+      if (recordingStartTime.value && isRecording.value) {
+        currentRecordingTime.value = Date.now() - recordingStartTime.value
+      } else if (!isRecording.value) {
+        // Auto-stop timer if recording stopped elsewhere
+        stopTimer()
+      }
+    }, 100)
+  }
 
   function stopTimer() {
     if (timerInterval.value) {
@@ -91,14 +90,16 @@ export const useRecorderStore = defineStore('recorder', () => {
     recordingDuration.value = 0
   }
 
-   function cleanup() { //detach beforeunload handler(emergency cleanup) when recording starts
+  function cleanup() {
+    //detach beforeunload handler(emergency cleanup) when recording starts
     if (cleanupDone) {
       window.removeEventListener('beforeunload', immediateShutdown)
       cleanupDone = false
     }
   }
 
-  function immediateShutdown() { // hard stop recorder if still active
+  function immediateShutdown() {
+    // hard stop recorder if still active
     try {
       if (mediaRecorder.value && mediaRecorder.value.state !== 'inactive') {
         mediaRecorder.value.stop()
@@ -107,7 +108,7 @@ export const useRecorderStore = defineStore('recorder', () => {
       console.warn('Recorder shutdown error (stop):', err)
     }
     try {
-      audioStream.value?.getTracks().forEach(t => t.stop())
+      audioStream.value?.getTracks().forEach((t) => t.stop())
     } catch (err) {
       console.warn('Recorder shutdown error (tracks):', err)
     }
@@ -119,7 +120,6 @@ export const useRecorderStore = defineStore('recorder', () => {
     micPermissionStatus.value = ''
     transcriptionStatus.value = ''
     canExportSession.value = false
-
 
     resetTimer()
     recordingStartTime.value = Date.now()
@@ -135,7 +135,7 @@ export const useRecorderStore = defineStore('recorder', () => {
       const mimeType = pickMimeType()
       if (!mimeType) {
         micPermissionStatus.value = 'No supported audio format.'
-        stream.getTracks().forEach(t => t.stop())
+        stream.getTracks().forEach((t) => t.stop())
         return
       }
 
@@ -158,8 +158,9 @@ export const useRecorderStore = defineStore('recorder', () => {
           }
 
           if (isFinalStop.value) {
-            try { audioStream.value?.getTracks().forEach(t => t.stop()) }
-            catch (err) {
+            try {
+              audioStream.value?.getTracks().forEach((t) => t.stop())
+            } catch (err) {
               console.warn('Audio track stop failed during finalization:', err)
             }
             const finalBlob = new Blob(chunks, { type: mediaRecorder.value?.mimeType })
@@ -180,7 +181,8 @@ export const useRecorderStore = defineStore('recorder', () => {
 
       startTimer()
 
-      setTimeout(() => {  //early flush
+      setTimeout(() => {
+        //early flush
         if (mediaRecorder.value && mediaRecorder.value.state === 'recording') {
           mediaRecorder.value.requestData()
         }
@@ -206,60 +208,71 @@ export const useRecorderStore = defineStore('recorder', () => {
     if (!mr || mr.state !== 'recording' || isStopping.value) return
 
     requestAnimationFrame(() => {
-      try { mr.requestData() } catch (err) {
+      try {
+        mr.requestData()
+      } catch (err) {
         console.warn('Failed to request audio data during rotation:', err)
       }
-      setTimeout(() => { try { mr.stop() } catch (err) {
-        console.warn('Failed to stop recorder during rotation', err)
-      } }, 100)
+      setTimeout(() => {
+        try {
+          mr.stop()
+        } catch (err) {
+          console.warn('Failed to stop recorder during rotation', err)
+        }
+      }, 100)
     })
   }
 
   function stopRecording() {
-  if (!mediaRecorder.value || mediaRecorder.value.state === 'inactive' || isStopping.value) return
+    if (!mediaRecorder.value || mediaRecorder.value.state === 'inactive' || isStopping.value) return
 
-  isStopping.value = true
-  isFinalStop.value = true
+    isStopping.value = true
+    isFinalStop.value = true
 
-  transcriptionStatus.value = 'Transcribing the audio recording currently.'
-  canExportSession.value = false
+    transcriptionStatus.value = 'Transcribing the audio recording currently.'
+    canExportSession.value = false
 
-  if (audioRecorderInterval.value) {
-    clearInterval(audioRecorderInterval.value)
-    audioRecorderInterval.value = null
-  }
-  stopTimer()
-
-  requestAnimationFrame(() => {
-    try { mediaRecorder.value?.requestData() } catch (err) {
-      console.warn('Failed to request data before stopping recording:', err)
+    if (audioRecorderInterval.value) {
+      clearInterval(audioRecorderInterval.value)
+      audioRecorderInterval.value = null
     }
+    stopTimer()
 
-    setTimeout(() => {
-      try { mediaRecorder.value?.stop() } catch (err) {
-        console.warn('Failed to stop MediaRecorder cleanly:', err)
+    requestAnimationFrame(() => {
+      try {
+        mediaRecorder.value?.requestData()
+      } catch (err) {
+        console.warn('Failed to request data before stopping recording:', err)
       }
-    }, 120)
-  })
-}
+
+      setTimeout(() => {
+        try {
+          mediaRecorder.value?.stop()
+        } catch (err) {
+          console.warn('Failed to stop MediaRecorder cleanly:', err)
+        }
+      }, 120)
+    })
+  }
 
   async function sendAudioChunk(chunk: Blob, isFinalSegment = false) {
     const form = new FormData()
     const fileExtension = chunk.type.split('/')[1]?.split(';')[0] || 'ogg'
     form.append('audio', chunk, `chunk_${Date.now()}.${fileExtension}`)
 
-    try { //upload recorded audio chunks to sever for transcription
-      const res = await fetch(
-        endpoint(SERVER_CONFIG.ENDPOINTS.TRANSCRIBE_AUDIO_FILE),
-        { method: 'POST', body: form }
-      )
+    try {
+      //upload recorded audio chunks to sever for transcription
+      const res = await fetch(endpoint(SERVER_CONFIG.ENDPOINTS.TRANSCRIBE_AUDIO_FILE), {
+        method: 'POST',
+        body: form,
+      })
       if (!res.ok) {
         console.error('Chunk upload failed with status:', res.status)
 
         if (isFinalSegment) {
           transcriptionStatus.value = 'Transcription failed.'
           canExportSession.value = true
-      }
+        }
         return
       }
 
@@ -267,28 +280,27 @@ export const useRecorderStore = defineStore('recorder', () => {
       console.log('Chunk transcribed successfully:', result)
 
       if (isFinalSegment) {
-        transcriptionStatus.value =
-          'Transcription completed. This session can now be saved.'
+        transcriptionStatus.value = 'Transcription completed. This session can now be saved.'
         canExportSession.value = true
       }
-
     } catch (e) {
       console.error('Error sending audio chunk:', e)
     }
   }
 
   function playRecording() {
-  if (!recordedAudioURL.value) return
-  if (!currentAudio.value) currentAudio.value = new Audio(recordedAudioURL.value)
-  currentAudio.value.pause()
-  currentAudio.value.currentTime = 0
-  currentAudio.value.play().catch(err => {
-    console.error('Error playing recording:', err)
-    micPermissionStatus.value = 'Error playing audio'
-  })
-}
+    if (!recordedAudioURL.value) return
+    if (!currentAudio.value) currentAudio.value = new Audio(recordedAudioURL.value)
+    currentAudio.value.pause()
+    currentAudio.value.currentTime = 0
+    currentAudio.value.play().catch((err) => {
+      console.error('Error playing recording:', err)
+      micPermissionStatus.value = 'Error playing audio'
+    })
+  }
 
-  function clearAudioPreview() { //clear recorded audio to free memory
+  function clearAudioPreview() {
+    //clear recorded audio to free memory
     if (recordedAudioURL.value) {
       URL.revokeObjectURL(recordedAudioURL.value)
       recordedAudioURL.value = null

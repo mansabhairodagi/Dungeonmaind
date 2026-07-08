@@ -2,7 +2,7 @@
 import { useSessionStore } from '@/stores/session.ts'
 import DiceWidget from '../HomeView/DiceWidget.vue'
 import AbilitiesSection from '../HomeView/AbilitiesSection.vue'
-import JoinLink from "@/views/HomeView/JoinLink.vue";
+import JoinLink from '@/views/HomeView/JoinLink.vue'
 
 const store = useSessionStore()
 </script>

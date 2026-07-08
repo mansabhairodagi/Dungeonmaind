@@ -64,7 +64,7 @@ export const useTimelineStore = defineStore('timeline', () => {
   async function removeEvent(eventId: string) {
     try {
       await api.deleteEvent(eventId)
-      events.value = events.value.filter(e => e.id !== eventId)
+      events.value = events.value.filter((e) => e.id !== eventId)
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to delete event'
     }

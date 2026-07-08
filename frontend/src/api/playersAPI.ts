@@ -85,10 +85,7 @@ export async function leave(playerId: string, baseUrl?: string): Promise<void> {
  * - includeInactive=false -> only active players
  * - includeInactive=true  -> all players (used for "Join existing player" flow)
  */
-export async function listPlayers(
-  includeInactive = false,
-  baseUrl?: string,
-): Promise<PlayerOut[]> {
+export async function listPlayers(includeInactive = false, baseUrl?: string): Promise<PlayerOut[]> {
   const urlObj = new URL('/players', base(baseUrl))
   if (includeInactive) {
     urlObj.searchParams.set('include_inactive', 'true')
@@ -222,11 +219,7 @@ export async function kickPlayer(
   }
 }
 
-export async function postPlayerVoiceprint(
-  playerId: string,
-  voiceprint: Blob,
-  baseUrl: string,
-) {
+export async function postPlayerVoiceprint(playerId: string, voiceprint: Blob, baseUrl: string) {
   const fileExtension = voiceprint.type.split('/')[1]?.split(';')[0] || 'ogg'
   const url = new URL(`/players/${playerId}/voiceprint`, base(baseUrl)).toString()
 

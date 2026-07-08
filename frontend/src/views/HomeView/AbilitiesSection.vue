@@ -1,6 +1,14 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { type PlayerOut, updateMaxHp, damagePlayer, healPlayer, patchPlayerAbility, kickPlayer, postPlayerVoiceprint } from '@/api/playersAPI.ts'
+import {
+  type PlayerOut,
+  updateMaxHp,
+  damagePlayer,
+  healPlayer,
+  patchPlayerAbility,
+  kickPlayer,
+  postPlayerVoiceprint,
+} from '@/api/playersAPI.ts'
 import { useSessionStore } from '@/stores/session.ts'
 import { SERVER_CONFIG } from '@/config/config'
 import { useRouter } from 'vue-router'
@@ -14,11 +22,12 @@ function apiBase(): string {
   return store.backendUrl ?? SERVER_CONFIG.BASE_URL
 }
 
-
 /** Leave action */
 async function onLeave() {
   // stop any ongoing recordings (leader recorder + voiceprint recorder)
-  try { recorder.stopRecording() } catch {}
+  try {
+    recorder.stopRecording()
+  } catch {}
   try {
     if (isRecordingPlayerVoice.value) stopVoiceprintRecording()
     currentVoiceNote.value?.pause()
@@ -182,7 +191,8 @@ async function onMaxHpChange(player: PlayerOut, event: Event) {
     }
 
     // if maxhp decreased than decrease current HP
-    else if (delta < 0 && oldMax!= oldCur) { // avoid  additional damage if healthpoints were full
+    else if (delta < 0 && oldMax != oldCur) {
+      // avoid  additional damage if healthpoints were full
       await damage(player.id, 1)
     }
   } catch (err) {
@@ -219,11 +229,11 @@ async function setPlayerVoiceprint(player: PlayerOut) {
   const draft = playerVoiceDrafts.value[player.id]
   const voiceprint = draft.blob
 
-   try {
+  try {
     await postPlayerVoiceprint(player.id, voiceprint, apiBase())
     voiceprintSaved.value[player.id] = true
     recordVoiceprintMode.value[player.id] = false
-   } catch (err) {
+  } catch (err) {
     console.error('Create player voice failed:', err)
   } finally {
     voiceBusy.value[player.id] = false
@@ -231,15 +241,10 @@ async function setPlayerVoiceprint(player: PlayerOut) {
 }
 
 function pickMimeType(): string | undefined {
-    const candidates = [
-      'audio/ogg;codecs=opus',
-      'audio/webm;codecs=opus',
-      'audio/webm',
-      'audio/mp4',
-    ]
-    for (const t of candidates) if (MediaRecorder.isTypeSupported(t)) return t
-    return undefined
-  }
+  const candidates = ['audio/ogg;codecs=opus', 'audio/webm;codecs=opus', 'audio/webm', 'audio/mp4']
+  for (const t of candidates) if (MediaRecorder.isTypeSupported(t)) return t
+  return undefined
+}
 
 async function startVoiceprintRecording(player: PlayerOut) {
   try {
@@ -249,12 +254,13 @@ async function startVoiceprintRecording(player: PlayerOut) {
     const mimeType = pickMimeType()
     if (!mimeType) {
       playerVoiceStatus.value = 'No supported audio format.'
-      stream.getTracks().forEach(t => t.stop())
+      stream.getTracks().forEach((t) => t.stop())
       return
     }
 
     mediaRecorderVoiceNote.value = new MediaRecorder(stream, { mimeType })
-    mediaRecorderVoiceNote.value.ondataavailable = (e) => e.data.size && audioChunksVoiceNote.value.push(e.data)
+    mediaRecorderVoiceNote.value.ondataavailable = (e) =>
+      e.data.size && audioChunksVoiceNote.value.push(e.data)
     mediaRecorderVoiceNote.value.onstop = () => {
       const pID = currentRecordingPlayerId.value
       isRecordingPlayerVoice.value = false
@@ -262,7 +268,9 @@ async function startVoiceprintRecording(player: PlayerOut) {
 
       if (!pID) return
 
-      const audioBlob = new Blob(audioChunksVoiceNote.value, { type: mediaRecorderVoiceNote.value?.mimeType })
+      const audioBlob = new Blob(audioChunksVoiceNote.value, {
+        type: mediaRecorderVoiceNote.value?.mimeType,
+      })
 
       const existing = playerVoiceDrafts.value[pID]
       if (existing?.url) {
@@ -285,10 +293,10 @@ function stopVoiceprintRecording() {
   mediaRecorderVoiceNote.value?.stop()
 }
 
-function playRecordingNote(player: PlayerOut){
+function playRecordingNote(player: PlayerOut) {
   if (!player.id) return
   const draft = playerVoiceDrafts.value[player.id]
-  if (!draft) return;
+  if (!draft) return
 
   const url = draft.url
   if (!currentVoiceNote.value) {
@@ -323,7 +331,6 @@ function stopReRecord(playerId: string) {
   if (!playerId) return
   recordVoiceprintMode.value[playerId] = false
 }
-
 </script>
 
 <template>
@@ -339,9 +346,7 @@ function stopReRecord(playerId: string) {
       <h2 class="rail-title">Your Information</h2>
 
       <div class="rail-actions">
-        <button class="submit-button leave-button" @click="onLeave">
-          Leave
-        </button>
+        <button class="submit-button leave-button" @click="onLeave">Leave</button>
       </div>
     </div>
 
@@ -354,39 +359,27 @@ function stopReRecord(playerId: string) {
       </div>
 
       <!-- LEADER: Leave immer sichtbar; wenn New Voiceprint angezeigt wird, sitzt Leave rechts daneben -->
-      <template v-if="hasVoiceprint(store.currentPlayer) && !recordVoiceprintMode[store.currentPlayer.id]">
-        <div class="section__label leader-note">
-          You are the Leader
-        </div>
+      <template
+        v-if="hasVoiceprint(store.currentPlayer) && !recordVoiceprintMode[store.currentPlayer.id]"
+      >
+        <div class="section__label leader-note">You are the Leader</div>
         <div class="leader-actions-row">
           <button class="submit-button" @click="startReRecord(store.currentPlayer.id)">
             New Voiceprint
           </button>
 
-          <button class="submit-button leave-button" @click="onLeave">
-            Leave
-          </button>
+          <button class="submit-button leave-button" @click="onLeave">Leave</button>
         </div>
       </template>
-
 
       <template v-else>
         <!-- In Recording/Needs-Voiceprint Mode: Leave unter Name rechts -->
         <div v-if="!hasVoiceprint(store.currentPlayer)" class="leader-leave-row">
-          <button class="submit-button leave-button" @click="onLeave">
-            Leave
-          </button>
+          <button class="submit-button leave-button" @click="onLeave">Leave</button>
         </div>
 
-
-        <div
-          v-if="hasVoiceprint(store.currentPlayer)"
-          class="voiceprint-topbar"
-        >
-          <button
-            class="submit-button back-button"
-            @click="stopReRecord(store.currentPlayer.id)"
-          >
+        <div v-if="hasVoiceprint(store.currentPlayer)" class="voiceprint-topbar">
+          <button class="submit-button back-button" @click="stopReRecord(store.currentPlayer.id)">
             Go Back
           </button>
         </div>
@@ -398,7 +391,9 @@ function stopReRecord(playerId: string) {
             @click="startVoiceprintRecording(store.currentPlayer)"
             v-if="!isRecordingPlayerVoice || currentRecordingPlayerId !== store.currentPlayer.id"
             class="submit-button"
-            :disabled="isRecordingPlayerVoice && currentRecordingPlayerId !== store.currentPlayer.id"
+            :disabled="
+              isRecordingPlayerVoice && currentRecordingPlayerId !== store.currentPlayer.id
+            "
           >
             Start Recording
           </button>
@@ -422,14 +417,15 @@ function stopReRecord(playerId: string) {
           <button
             class="submit-button"
             @click="setPlayerVoiceprint(store.currentPlayer)"
-            :disabled="!playerVoiceDrafts[store.currentPlayer.id] || voiceBusy[store.currentPlayer.id]"
+            :disabled="
+              !playerVoiceDrafts[store.currentPlayer.id] || voiceBusy[store.currentPlayer.id]
+            "
           >
             Save Recording
           </button>
         </div>
       </template>
     </div>
-
 
     <div v-if="visiblePlayers.length" class="ability-list">
       <div
@@ -446,16 +442,8 @@ function stopReRecord(playerId: string) {
         <!-- VOICEPRINT ONLY -->
         <div v-if="!canShowStats(p)">
           <template v-if="store.isLeader">
-            <div
-              v-if="store.isLeader && hasVoiceprint(p)"
-              class="voiceprint-topbar"
-            >
-              <button
-                class="submit-button back-button"
-                @click="stopReRecord(p.id)"
-              >
-                Go Back
-              </button>
+            <div v-if="store.isLeader && hasVoiceprint(p)" class="voiceprint-topbar">
+              <button class="submit-button back-button" @click="stopReRecord(p.id)">Go Back</button>
             </div>
             <div class="ability-card__name voiceprint-title">Record a voiceprint for player:</div>
 
@@ -493,7 +481,6 @@ function stopReRecord(playerId: string) {
                 Save Recording
               </button>
             </div>
-
           </template>
 
           <template v-else>
@@ -504,9 +491,7 @@ function stopReRecord(playerId: string) {
         <!-- STATS (erst nach gespeichert) -->
         <div v-else>
           <div v-if="store.isLeader" class="voiceprint-rerecord">
-            <button class="submit-button" @click="startReRecord(p.id)">
-              New Voiceprint
-            </button>
+            <button class="submit-button" @click="startReRecord(p.id)">New Voiceprint</button>
             <button
               class="submit-button"
               v-if="p.id !== store.currentPlayer?.id"
@@ -606,9 +591,7 @@ function stopReRecord(playerId: string) {
           </div>
 
           <div class="hpmax-row">
-            <label class="section__label" :for="'hpmax-' + p.id">
-              Maximum Hit Points:
-            </label>
+            <label class="section__label" :for="'hpmax-' + p.id"> Maximum Hit Points: </label>
             <input
               :id="'hpmax-' + p.id"
               class="hpmax-input"
@@ -625,7 +608,6 @@ function stopReRecord(playerId: string) {
     <p v-else class="output">No players found.</p>
   </section>
 </template>
-
 
 <style src="@/assets/styles.css"></style>
 <style scoped>
@@ -829,7 +811,6 @@ function stopReRecord(playerId: string) {
   font-weight: 700;
 }
 
-
 /* Voice Print*/
 .voiceprint-actions {
   display: flex;
@@ -853,7 +834,6 @@ function stopReRecord(playerId: string) {
   box-sizing: border-box;
 }
 
-
 .voiceprint-rerecord .submit-button {
   width: auto;
 }
@@ -864,7 +844,7 @@ function stopReRecord(playerId: string) {
 }
 
 .voiceprint-topbar .back-button {
-  width: auto !important;    /* falls submit-button width:100% hat */
+  width: auto !important; /* falls submit-button width:100% hat */
   flex: 0 0 auto;
 }
 
@@ -900,7 +880,7 @@ function stopReRecord(playerId: string) {
 }
 
 .leave-button {
-  width: auto !important;    /* falls submit-button 100% setzt */
+  width: auto !important; /* falls submit-button 100% setzt */
   flex: 0 0 auto;
 }
 
@@ -930,9 +910,9 @@ function stopReRecord(playerId: string) {
 }
 
 .leader-leave-row .leave-button {
-  width: auto !important;     /* submit-button width:100% überschreiben */
+  width: auto !important; /* submit-button width:100% überschreiben */
   flex: 0 0 auto;
-  margin-left: auto;          /* sicher nach rechts drücken */
+  margin-left: auto; /* sicher nach rechts drücken */
 }
 
 @media (max-width: 600px) {
@@ -940,5 +920,4 @@ function stopReRecord(playerId: string) {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
-
 </style>

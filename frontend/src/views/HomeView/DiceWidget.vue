@@ -51,7 +51,6 @@ function rollDice(sides: number) {
   justify-content: center;
 }
 
-
 .dice-button {
   flex: 1 0 30%;
   padding: 0.75rem;

@@ -24,7 +24,7 @@ const deleteTranscriptions = ref(false)
 const emit = defineEmits(['submit-success'])
 
 const errorHappend = ref(false)
-const errorMessage = ""
+const errorMessage = ''
 
 async function submitSelection() {
   isSubmitting.value = true
@@ -52,7 +52,6 @@ async function submitSelection() {
 function cancelSubmit() {
   emit('submit-success')
 }
-
 </script>
 
 <template>

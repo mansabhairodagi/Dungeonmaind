@@ -2,12 +2,12 @@ import { useSessionStore } from '@/stores/session.ts'
 // Set the server and enpdoints
 export const SERVER_CONFIG = {
   get BASE_URL() {
-    const store = useSessionStore();
-    return store.backendUrl || "http://localhost:8000"; // Fallback
+    const store = useSessionStore()
+    return store.backendUrl || 'http://localhost:8000' // Fallback
   },
   get LOCAL_NETWORK_IP() {
-    const store = useSessionStore();
-    return store.localNetworkIP || "";
+    const store = useSessionStore()
+    return store.localNetworkIP || ''
   },
   ENDPOINTS: {
     RUN_LLM: '/llm/run',
@@ -33,8 +33,14 @@ export const SERVER_CONFIG = {
 
 // Set the available LLM models
 export const LLM_OPTIONS = [
-  { value: 'hf.co/bartowski/mistralai_Ministral-3-3B-Instruct-2512-GGUF:Q5_K_M', label: 'Ministral3-3B'},
-  { value: 'hf.co/bartowski/mistralai_Ministral-3-14B-Instruct-2512-GGUF:Q5_K_M', label: 'Ministral3-14B'},
+  {
+    value: 'hf.co/bartowski/mistralai_Ministral-3-3B-Instruct-2512-GGUF:Q5_K_M',
+    label: 'Ministral3-3B',
+  },
+  {
+    value: 'hf.co/bartowski/mistralai_Ministral-3-14B-Instruct-2512-GGUF:Q5_K_M',
+    label: 'Ministral3-14B',
+  },
   { value: 'hf.co/bartowski/google_gemma-3-1b-it-qat-GGUF:Q5_K_M', label: 'Gemma3-1B' },
   { value: 'hf.co/bartowski/google_gemma-3-12b-it-qat-GGUF:Q5_K_M', label: 'Gemma3-12B' },
   { value: 'hf.co/bartowski/microsoft_Phi-4-mini-instruct-GGUF:Q5_K_M', label: 'Phi4-3.8B' },
@@ -57,7 +63,10 @@ export const DEFAULT_TRANSCRIPTION_MODEL = TRANSCRIPTION_MODELS[0].value
 export const EMBEDDING_MODELS = [
   { value: 'all-MiniLM-L6-v2', label: 'all-MiniLM-L6-v2' },
   { value: 'all-MiniLM-L12-v2', label: 'all-MiniLM-L12-v2' },
-  { value: 'paraphrase-multilingual-MiniLM-L12-v2', label: 'paraphrase-multilingual-MiniLM-L12-v2' },
+  {
+    value: 'paraphrase-multilingual-MiniLM-L12-v2',
+    label: 'paraphrase-multilingual-MiniLM-L12-v2',
+  },
 ]
 
 // Set the default embedding model

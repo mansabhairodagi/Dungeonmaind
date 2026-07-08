@@ -6,3 +6,7 @@
 
 **/backend/data/chroma_db/
 **/backend/data/SavedSessions/
+
+# system / user nonsense
+~/
+.project_flow.md

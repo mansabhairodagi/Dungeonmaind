@@ -35,11 +35,11 @@ const typeIcons: Record<string, string> = {
 
 const filteredEvents = computed(() => {
   if (!filterType.value) return timelineStore.events
-  return timelineStore.events.filter(e => e.event_type === filterType.value)
+  return timelineStore.events.filter((e) => e.event_type === filterType.value)
 })
 
 const uniqueTypes = computed(() => {
-  const types = new Set(timelineStore.events.map(e => e.event_type))
+  const types = new Set(timelineStore.events.map((e) => e.event_type))
   return Array.from(types)
 })
 
@@ -97,9 +97,7 @@ onMounted(() => {
       {{ timelineStore.error }}
     </div>
 
-    <div v-if="timelineStore.loading" class="loading">
-      Loading events...
-    </div>
+    <div v-if="timelineStore.loading" class="loading">Loading events...</div>
 
     <div v-else-if="timelineStore.events.length === 0" class="empty-state">
       <p>No timeline events yet.</p>
@@ -109,10 +107,7 @@ onMounted(() => {
     <template v-else>
       <div class="filter-bar">
         <span class="filter-label">Filter:</span>
-        <button
-          :class="['filter-btn', { active: filterType === null }]"
-          @click="filterType = null"
-        >
+        <button :class="['filter-btn', { active: filterType === null }]" @click="filterType = null">
           All ({{ timelineStore.eventCount }})
         </button>
         <button
@@ -136,7 +131,10 @@ onMounted(() => {
         >
           <div class="event-dot"></div>
           <div class="event-card">
-            <div class="event-type-badge" :style="{ background: typeColors[event.event_type] || '#95a5a6' }">
+            <div
+              class="event-type-badge"
+              :style="{ background: typeColors[event.event_type] || '#95a5a6' }"
+            >
               {{ typeIcons[event.event_type] || '' }} {{ event.event_type }}
             </div>
             <h3 class="event-title">{{ event.title }}</h3>
@@ -178,13 +176,14 @@ onMounted(() => {
           <div v-if="selectedEvent.location_entities.length" class="detail-row">
             <strong>Location:</strong> {{ selectedEvent.location_entities.join(', ') }}
           </div>
-          <div class="detail-row">
-            <strong>Order:</strong> #{{ selectedEvent.order }}
-          </div>
+          <div class="detail-row"><strong>Order:</strong> #{{ selectedEvent.order }}</div>
         </div>
         <button
           class="btn btn-danger"
-          @click="timelineStore.removeEvent(selectedEvent.id); closeDetail()"
+          @click="
+            timelineStore.removeEvent(selectedEvent.id)
+            closeDetail()
+          "
         >
           Delete Event
         </button>

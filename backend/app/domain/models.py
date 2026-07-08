@@ -228,6 +228,70 @@ class Player:
         )
 
 
+class TimelineEventType(str, Enum):
+    combat = "combat"
+    discovery = "discovery"
+    dialogue = "dialogue"
+    travel = "travel"
+    rest = "rest"
+    quest = "quest"
+    other = "other"
+
+
+@dataclass
+class TimelineEvent:
+    id: str
+    session_id: str
+    title: str
+    description: str
+    event_type: TimelineEventType = field(default_factory=lambda: TimelineEventType.other)
+    order: int = 0
+    timestamp: float = 0.0
+    transcription_chunk_id: str | None = None
+    player_id: str | None = None
+    speaker_name: str | None = None
+    temporal_entities: list[str] = field(default_factory=list)
+    location_entities: list[str] = field(default_factory=list)
+    created_at: datetime = field(default_factory=now_utc)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "session_id": self.session_id,
+            "title": self.title,
+            "description": self.description,
+            "event_type": self.event_type.value,
+            "order": self.order,
+            "timestamp": self.timestamp,
+            "transcription_chunk_id": self.transcription_chunk_id,
+            "player_id": self.player_id,
+            "speaker_name": self.speaker_name,
+            "temporal_entities": self.temporal_entities,
+            "location_entities": self.location_entities,
+            "created_at": self.created_at.isoformat(),
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "TimelineEvent":
+        return cls(
+            id=data["id"],
+            session_id=data["session_id"],
+            title=data["title"],
+            description=data["description"],
+            event_type=TimelineEventType(data.get("event_type", "other")),
+            order=data.get("order", 0),
+            timestamp=data.get("timestamp", 0.0),
+            transcription_chunk_id=data.get("transcription_chunk_id"),
+            player_id=data.get("player_id"),
+            speaker_name=data.get("speaker_name"),
+            temporal_entities=data.get("temporal_entities", []),
+            location_entities=data.get("location_entities", []),
+            created_at=datetime.fromisoformat(data["created_at"])
+            if "created_at" in data
+            else now_utc(),
+        )
+
+
 @dataclass
 class Group:
     id: UUID = field(default_factory=uuid4)

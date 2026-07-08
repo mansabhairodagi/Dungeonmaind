@@ -390,6 +390,7 @@ async function confirmDeletion() {
     <h1>Dungeonmaind</h1>
     <div class="header-right">
       <button class="rulebook-button" @click="showRulebookModal = true">Rulebook</button>
+      <router-link to="/timeline" class="timeline-button">Timeline</router-link>
       <button v-if="store.isLeader" class="config-button" @click="openConfig">Config</button>
       <button
         v-if="store.isLeader"
@@ -568,6 +569,7 @@ async function confirmDeletion() {
 }
 
 .rulebook-button,
+.timeline-button,
 .config-button,
 .export-button {
   padding: 0.5rem 1rem;
@@ -582,12 +584,14 @@ async function confirmDeletion() {
 }
 
 .rulebook-button:hover,
+.timeline-button:hover,
 .config-button:hover,
 .export-button:hover {
   background-color: #4a575e;
 }
 
 .rulebook-button:disabled,
+.timeline-button:disabled,
 .config-button:disabled,
 .export-button:disabled {
   opacity: 0.7;

@@ -8,6 +8,14 @@
 #                   pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu128
 
 import torch
+import lightning_fabric.utilities.cloud_io
+
+# Patch lightning_fabric to always use weights_only=False
+_original_pl_load = lightning_fabric.utilities.cloud_io._load
+def _patched_pl_load(path_or_url, map_location=None, weights_only=None):
+    return _original_pl_load(path_or_url, map_location, weights_only=False)
+lightning_fabric.utilities.cloud_io._load = _patched_pl_load
+
 import whisperx
 import tempfile
 import os
@@ -16,8 +24,10 @@ from io import BytesIO
 
 from app.functions.embedding.embedding_model import embedd_transcriptions
 from app.domain.store import store
+from app.domain.timeline_store import timeline_store
 from app.core.config import settings
 from whisperx.diarize import DiarizationPipeline
+from app.functions.llm.event_extractor import extract_events_from_transcriptions
 
 def load_transcription_model():
     new_model = whisperx.load_model(
@@ -38,13 +48,19 @@ def reload_transcription_model():
 
 def load_diarize_model():
     if not settings.hf_token:
-        raise RuntimeError("HF_TOKEN is not set. Please add it to your .env file.")
+        print("Warning: HF_TOKEN is not set. Speaker diarization disabled.")
+        return None
 
-    new_model = DiarizationPipeline(
-        use_auth_token=settings.hf_token,
-        device=device
-    )
-    return new_model
+    try:
+        new_model = DiarizationPipeline(
+            use_auth_token=settings.hf_token,
+            device=device
+        )
+        return new_model
+    except Exception as e:
+        print(f"Warning: Failed to load diarization model ({e}). Speaker diarization disabled.")
+        print("Visit https://hf.co/pyannote/speaker-diarization-3.1 and accept terms to enable it.")
+        return None
 
 
 model_dir = os.getenv("WHISPERX_MODELS_DIR", None)
@@ -68,7 +84,10 @@ alignment_models_cache = {}
 # 1. Load models
 transcription_model = load_transcription_model()
 diarize_model = load_diarize_model()
-print("Models loaded successfully.")
+if diarize_model is not None:
+    print("Models loaded successfully.")
+else:
+    print("Transcription model loaded (diarization disabled).")
 
 
 async def transcribe_audio(audio_bytes: bytes, content_type: str, batch_size=16):
@@ -160,11 +179,12 @@ async def transcribe_audio(audio_bytes: bytes, content_type: str, batch_size=16)
         print(f"min players: {min_players}")
         print(f"max players: {max_players}")
 
-        # Perform diarization with constraints
-        diarizeSegments = diarize_model(audio, min_speakers=min_players, max_speakers=max_players)
-
-        # Assign speakers to the aligned segments
-        resultB = whisperx.assign_word_speakers(diarizeSegments, resultA)
+        # Perform diarization with constraints (skip if model unavailable)
+        if diarize_model is not None:
+            diarizeSegments = diarize_model(audio, min_speakers=min_players, max_speakers=max_players)
+            resultB = whisperx.assign_word_speakers(diarizeSegments, resultA)
+        else:
+            resultB = resultA
 
         # print("Diarization segments:", diarizeSegments)
 
@@ -205,7 +225,14 @@ async def transcribe_audio(audio_bytes: bytes, content_type: str, batch_size=16)
                 embedding_text=texts,
                 speakers=speakers
             )
-        # print(f"Removed intro (first {intro_duration_s:.2f} seconds). Remaining segments: {len(filtered_segments)}")
+
+            events = extract_events_from_transcriptions(
+                texts=texts,
+                speakers=speakers,
+            )
+            if events:
+                await timeline_store.add_events(events)
+                print(f"Generated {len(events)} timeline events from transcription.")
 
         return filtered_segments
 

@@ -1,7 +1,8 @@
 import asyncio
+from collections.abc import Mapping
 from uuid import UUID
-from typing import Mapping, Optional
-from app.domain.models import Group, Player, Role, PlayerStatus
+
+from app.domain.models import Group, Player, PlayerStatus, Role
 
 
 class SingleGroupStore:
@@ -31,9 +32,7 @@ class SingleGroupStore:
 
     # Abilities Update für einen Spieler
     async def update_player_abilities(
-        self,
-        player_id: UUID,
-        changes: Mapping[str, Optional[int]],
+        self, player_id: UUID, changes: Mapping[str, int | None]
     ) -> Player:
         """
         Aktualisiert die übergebenen Ability-Felder (str/dex/con/int_/wis/cha).
@@ -61,7 +60,6 @@ class SingleGroupStore:
             p.touch()
             self.group.players[p.id] = p
             return p
-
 
 
 store = SingleGroupStore()

@@ -63,9 +63,9 @@ Starts all three services (ollama, backend, frontend) at once.
 > DnD campaigns often span many sessions, making it difficult to remember details from past campaigns.
 
 Dungeon M-AI-nd addresses this problem by:
-1. Recording spoken audio during a session  
-2. Transcribing it automatically  
-3. Making the content searchable and queryable  
+1. Recording spoken audio during a session
+2. Transcribing it automatically
+3. Making the content searchable and queryable
 
 This allows players to retrieve accurate information based on **real session dialogue**, not summaries or manual notes. The goal is to efficiently record your DnD sessions and to make them searchable. Players are be able to ask questions like:
 
@@ -91,7 +91,7 @@ and receive accurate answers based on real transcriptions of their sessions.
 
 ## System Overview
 
-🎙️ Recording → 🧠 Transcription (WhisperX) 
+🎙️ Recording → 🧠 Transcription (WhisperX)
 → 🧩 Embedding → 💾 Storage → 🤖 Q&A via LLM
 
 ---
@@ -104,7 +104,7 @@ and receive accurate answers based on real transcriptions of their sessions.
 - Node.js
 - ffmpeg (for WhisperX) - very important!
 - (Optional but recommended) GPU with CUDA for accelerated transcription by WhisperX and answer-	response times by the llm
-  
+
 ### 1. Clone the repository
 	```text
 	git clone https://github.com/FNitzsche/Dungeonmaind.git
@@ -117,9 +117,9 @@ and receive accurate answers based on real transcriptions of their sessions.
 	```
 For GPU support you need to install CUDA (CUDA Toolkit 12.8.1), cuDNN (cuDNN 9.10.2), ctranslate2 (4.6.0) and:
 	```text
-	
+
 	pip uninstall torch torchaudio
-	
+
 	pip install torch==2.8.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cu128
 	```
 
@@ -186,7 +186,7 @@ See the README.md file in the 'frontend' folder. (first run ```npm install```, t
 ### Stopping the Recording
 1. Click Stop Recording when the session ends.
 2. The recording timer stops and the final audio segment is sent to the backend.
-3. A status message soon appears indicating the audio transcription is in progress. 
+3. A status message soon appears indicating the audio transcription is in progress.
 4. The backend eventually completes final transcription, alignment, and speaker labeling.
 5. Once final processing is complete, the session is now ready for playback, querying, and export.
 

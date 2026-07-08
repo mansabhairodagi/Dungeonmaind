@@ -1,5 +1,5 @@
-from app.domain.models import TimelineEvent as DomainTimelineEvent
 from app.base_models.timeline_base_models import TimelineEventOut
+from app.domain.models import TimelineEvent as DomainTimelineEvent
 
 
 def timeline_event_to_out(event: DomainTimelineEvent) -> TimelineEventOut:

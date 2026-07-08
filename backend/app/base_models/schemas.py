@@ -1,18 +1,18 @@
 from datetime import datetime
-from typing import Optional, Literal
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
 # Use the domain enums as the single source of truth
-from app.domain.models import Role, PlayerStatus
+from app.domain.models import PlayerStatus, Role
 
 
 # Input models
 class PlayerIn(BaseModel):
     name: str = Field(min_length=2, max_length=50)
     role: Role
-    reuse_id: Optional[UUID] = None  # used for re-join / reuse flow
+    reuse_id: UUID | None = None  # used for re-join / reuse flow
 
 
 # Abilities
@@ -27,12 +27,12 @@ class Abilities(BaseModel):
 
 
 class AbilitiesIn(BaseModel):
-    str: Optional[int] = None
-    dex: Optional[int] = None
-    con: Optional[int] = None
-    int_: Optional[int] = None
-    wis: Optional[int] = None
-    cha: Optional[int] = None
+    str: int | None = None
+    dex: int | None = None
+    con: int | None = None
+    int_: int | None = None
+    wis: int | None = None
+    cha: int | None = None
 
 
 # HP (nested)
@@ -43,9 +43,9 @@ class Hp(BaseModel):
 
 
 class HpPatch(BaseModel):
-    current: Optional[int] = Field(None, ge=0)
-    max: Optional[int] = Field(None, ge=1)
-    temp: Optional[int] = Field(None, ge=0)
+    current: int | None = Field(None, ge=0)
+    max: int | None = Field(None, ge=1)
+    temp: int | None = Field(None, ge=0)
 
 
 class MaxHpUpdate(BaseModel):
@@ -61,26 +61,26 @@ class PlayerOut(BaseModel):
     hp: Hp = Field(default_factory=Hp)
     created_at: datetime
     last_seen_at: datetime
-    abilities: Optional[Abilities] = None
-    backend_url: Optional[str] = None
+    abilities: Abilities | None = None
+    backend_url: str | None = None
     has_voiceprint: bool = False
 
 
 # Optional: unified patch model (not currently used by routes)
 class PlayerPatch(BaseModel):
-    name: Optional[str] = None
-    role: Optional[Role] = None
+    name: str | None = None
+    role: Role | None = None
 
-    hp: Optional[HpPatch] = None
-    abilities: Optional[AbilitiesIn] = None
+    hp: HpPatch | None = None
+    abilities: AbilitiesIn | None = None
 
     # flat ability fields
-    str: Optional[int] = None
-    dex: Optional[int] = None
-    con: Optional[int] = None
-    int_: Optional[int] = None
-    wis: Optional[int] = None
-    cha: Optional[int] = None
+    str: int | None = None
+    dex: int | None = None
+    con: int | None = None
+    int_: int | None = None
+    wis: int | None = None
+    cha: int | None = None
 
 
 # Action bodies
@@ -101,5 +101,5 @@ class GroupStateOut(BaseModel):
 
 # For /players/join/check
 class JoinCheckOut(BaseModel):
-    status: Literal["available", "inactive_match", "active_conflict"]
-    candidate: Optional[PlayerOut] = None
+    status: Literal['available', 'inactive_match', 'active_conflict']
+    candidate: PlayerOut | None = None

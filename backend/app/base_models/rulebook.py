@@ -1,11 +1,13 @@
 from pydantic import BaseModel
-from typing import List, Dict
+
 
 class FolderContent(BaseModel):
-    folders: List[str]
-    files: List[str]
+    folders: list[str]
+    files: list[str]
 
-FolderStructure = Dict[str, FolderContent]
+
+FolderStructure = dict[str, FolderContent]
+
 
 class FileContentResponse(BaseModel):
     content: str

@@ -1,5 +1,5 @@
-import re
 import json
+import re
 from dataclasses import dataclass
 from typing import Any
 from urllib.error import HTTPError, URLError
@@ -13,403 +13,387 @@ class ExtractedEntities:
 
 
 LLM_ENTITY_SYSTEM_PROMPT = (
-    "You extract temporal and location entities from Dungeons and Dragons session text. "
-    "Return only valid JSON with two arrays: temporal_entities and location_entities. "
-    "Temporal entities are time-related phrases, dates, durations, clock times, relative times, "
-    "or event-relative times. Location entities are physical places, regions, buildings, rooms, "
-    "settlements, landmarks, fantasy place names, countries, cities, or named areas. "
-    "Do not include people, monsters, items, organizations, or actions unless they are part of a place name. "
-    "Every entity must be a short exact substring from the input text. "
-    "Do not include descriptions, definitions, sentences, explanations, or text after a colon. "
-    "Do not put locations in temporal_entities. Do not put temporal phrases in location_entities. "
-    "Do not explain. Do not ask questions."
+    'You extract temporal and location entities from Dungeons and Dragons session text. '
+    'Return only valid JSON with two arrays: temporal_entities and location_entities. '
+    'Temporal entities are time-related phrases, dates, durations, clock times, relative times, '
+    'or event-relative times. Location entities are physical places, regions, buildings, rooms, '
+    'settlements, landmarks, fantasy place names, countries, cities, or named areas. '
+    'Do not include people, monsters, items, organizations, or actions unless they are part of a place name. '
+    'Every entity must be a short exact substring from the input text. '
+    'Do not include descriptions, definitions, sentences, explanations, or text after a colon. '
+    'Do not put locations in temporal_entities. Do not put temporal phrases in location_entities. '
+    'Do not explain. Do not ask questions.'
 )
 
 
 MONTHS = (
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
 )
 
-WEEKDAYS = (
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-    "Sunday",
-)
+WEEKDAYS = ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')
 
-RELATIVE_TIME_WORDS = (
-    "today",
-    "yesterday",
-    "tomorrow",
-    "tonight",
-)
+RELATIVE_TIME_WORDS = ('today', 'yesterday', 'tomorrow', 'tonight')
 
 RELATIVE_TIME_PHRASES = (
-    "next week",
-    "last week",
-    "this week",
-    "next month",
-    "last month",
-    "this month",
-    "next year",
-    "last year",
-    "this year",
+    'next week',
+    'last week',
+    'this week',
+    'next month',
+    'last month',
+    'this month',
+    'next year',
+    'last year',
+    'this year',
 )
 
 DOCX_TEMPORAL_PATTERNS = [
-    r"\b\d+\s+(?:minute|minutes|hour|hours|day|days|week|weeks|month|months|year|years)\s+after\b",
-    r"\b\d+\s+(?:minute|minutes|hour|hours|day|days|week|weeks|month|months|year|years)\s+before\b",
-    r"\bafter\s+several\s+hours\s+of\s+travel\b",
-    r"\bAt\s+approximately\s+\d{1,2}\.\d{2}\s*(?:AM|PM|am|pm)?\b",
-    r"\bAt\s+\d{3,4}\b",
-    r"\bAround\s+midday\b",
-    r"\bFollowing\s+morning\b",
-    r"\b(?:that|this)\s+evening\b",
-    r"\bDuring\s+the\s+night\b",
-    r"\bOne\s+hour\s+before\s+dawn\b",
-    r"\bbefore\s+sunset\s+on\s+(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b",
-    r"\b(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s+morning\b",
-    r"\bAround\s+noon\b",
-    r"\bLater\s+that\s+afternoon\b",
-    r"\bLater\s+that\s+evening\b",
-    r"\bBefore\s+sunset\b",
-    r"\bfor\s+the\s+night\b",
-    r"\bAfter\s+traveling\s+for\s+three\s+hours\b",
-    r"\bBy\s+midday\b",
-    r"\bDuring\s+the\s+evening\b",
-    r"\bShortly\s+before\s+midnight\b",
-    r"\bTwo\s+days\s+after\s+leaving\b",
-    r"\bBefore\s+dawn\s+on\s+(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b",
-    r"\bDuring\s+the\s+following\s+night\b",
-    r"\bThree\s+weeks\s+after\b",
-    r"\bFor\s+the\s+past\s+\d+\s+(?:day|days|week|weeks|month|months|year|years)\b",
-    rf"\b(?:the\s+)?morning\s+of\s+(?:{ '|'.join(MONTHS) })\s+\d{{1,2}},\s*\d{{4}}\b",
-    r"\bBetween\s+sunset\s+and\s+midnight\b",
-    r"\bBetween\s+sunrise\s+and\s+noon\b",
-    r"\bBy\s+the\s+end\s+of\s+the\s+month\b",
-    r"\bBefore\s+the\s+beginning\s+of\s+the\s+next\s+year\b",
+    r'\b\d+\s+(?:minute|minutes|hour|hours|day|days|week|weeks|month|months|year|years)\s+after\b',
+    r'\b\d+\s+(?:minute|minutes|hour|hours|day|days|week|weeks|month|months|year|years)\s+before\b',
+    r'\bafter\s+several\s+hours\s+of\s+travel\b',
+    r'\bAt\s+approximately\s+\d{1,2}\.\d{2}\s*(?:AM|PM|am|pm)?\b',
+    r'\bAt\s+\d{3,4}\b',
+    r'\bAround\s+midday\b',
+    r'\bFollowing\s+morning\b',
+    r'\b(?:that|this)\s+evening\b',
+    r'\bDuring\s+the\s+night\b',
+    r'\bOne\s+hour\s+before\s+dawn\b',
+    r'\bbefore\s+sunset\s+on\s+(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b',
+    r'\b(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s+morning\b',
+    r'\bAround\s+noon\b',
+    r'\bLater\s+that\s+afternoon\b',
+    r'\bLater\s+that\s+evening\b',
+    r'\bBefore\s+sunset\b',
+    r'\bfor\s+the\s+night\b',
+    r'\bAfter\s+traveling\s+for\s+three\s+hours\b',
+    r'\bBy\s+midday\b',
+    r'\bDuring\s+the\s+evening\b',
+    r'\bShortly\s+before\s+midnight\b',
+    r'\bTwo\s+days\s+after\s+leaving\b',
+    r'\bBefore\s+dawn\s+on\s+(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b',
+    r'\bDuring\s+the\s+following\s+night\b',
+    r'\bThree\s+weeks\s+after\b',
+    r'\bFor\s+the\s+past\s+\d+\s+(?:day|days|week|weeks|month|months|year|years)\b',
+    rf'\b(?:the\s+)?morning\s+of\s+(?:{"|".join(MONTHS)})\s+\d{{1,2}},\s*\d{{4}}\b',
+    r'\bBetween\s+sunset\s+and\s+midnight\b',
+    r'\bBetween\s+sunrise\s+and\s+noon\b',
+    r'\bBy\s+the\s+end\s+of\s+the\s+month\b',
+    r'\bBefore\s+the\s+beginning\s+of\s+the\s+next\s+year\b',
 ]
 
 LOCAL_PLACE_PREFIXES = (
-    "Room",
-    "Building",
-    "Floor",
-    "Hall",
-    "Gate",
-    "Tower",
-    "Castle",
-    "Temple",
-    "Dungeon",
-    "Tavern",
-    "Village",
-    "City",
+    'Room',
+    'Building',
+    'Floor',
+    'Hall',
+    'Gate',
+    'Tower',
+    'Castle',
+    'Temple',
+    'Dungeon',
+    'Tavern',
+    'Village',
+    'City',
 )
 
 PLACE_NOUNS = (
-    "abbey",
-    "alley",
-    "arena",
-    "armory",
-    "barracks",
-    "battlefield",
-    "bay",
-    "barrens",
-    "bridge",
-    "brook",
-    "camp",
-    "campsite",
-    "canyon",
-    "castle",
-    "cave",
-    "caverns",
-    "cemetery",
-    "chamber",
-    "chapel",
-    "citadel",
-    "city",
-    "clearing",
-    "cliff",
-    "coast",
-    "crossing",
-    "crypt",
-    "den",
-    "dock",
-    "docks",
-    "dungeon",
-    "encampment",
-    "farm",
-    "ferry",
-    "field",
-    "forest",
-    "forge",
-    "fort",
-    "fortress",
-    "gate",
-    "graveyard",
-    "grove",
-    "guildhall",
-    "hall",
-    "hamlet",
-    "harbor",
-    "hideout",
-    "hill",
-    "hills",
-    "inn",
-    "island",
-    "isle",
-    "jungle",
-    "keep",
-    "kingdom",
-    "lake",
-    "labyrinth",
-    "library",
-    "lair",
-    "manor",
-    "market",
-    "marsh",
-    "maze",
-    "mine",
-    "mines",
-    "monastery",
-    "mount",
-    "mountain",
-    "mountains",
-    "outpost",
-    "palace",
-    "pass",
-    "path",
-    "peninsula",
-    "plains",
-    "port",
-    "ravine",
-    "realm",
-    "river",
-    "road",
-    "room",
-    "ruin",
-    "ruins",
-    "sanctum",
-    "sea",
-    "settlement",
-    "sewer",
-    "sewers",
-    "shop",
-    "shrine",
-    "square",
-    "stable",
-    "stronghold",
-    "swamp",
-    "tavern",
-    "temple",
-    "throne room",
-    "tower",
-    "trail",
-    "tunnel",
-    "tunnels",
-    "valley",
-    "village",
-    "watchtower",
-    "wood",
-    "woods",
-    "dominion",
-    "observatory",
-    "shores",
-    "spires",
-    "reach",
-    "expanse",
-    "lips",
+    'abbey',
+    'alley',
+    'arena',
+    'armory',
+    'barracks',
+    'battlefield',
+    'bay',
+    'barrens',
+    'bridge',
+    'brook',
+    'camp',
+    'campsite',
+    'canyon',
+    'castle',
+    'cave',
+    'caverns',
+    'cemetery',
+    'chamber',
+    'chapel',
+    'citadel',
+    'city',
+    'clearing',
+    'cliff',
+    'coast',
+    'crossing',
+    'crypt',
+    'den',
+    'dock',
+    'docks',
+    'dungeon',
+    'encampment',
+    'farm',
+    'ferry',
+    'field',
+    'forest',
+    'forge',
+    'fort',
+    'fortress',
+    'gate',
+    'graveyard',
+    'grove',
+    'guildhall',
+    'hall',
+    'hamlet',
+    'harbor',
+    'hideout',
+    'hill',
+    'hills',
+    'inn',
+    'island',
+    'isle',
+    'jungle',
+    'keep',
+    'kingdom',
+    'lake',
+    'labyrinth',
+    'library',
+    'lair',
+    'manor',
+    'market',
+    'marsh',
+    'maze',
+    'mine',
+    'mines',
+    'monastery',
+    'mount',
+    'mountain',
+    'mountains',
+    'outpost',
+    'palace',
+    'pass',
+    'path',
+    'peninsula',
+    'plains',
+    'port',
+    'ravine',
+    'realm',
+    'river',
+    'road',
+    'room',
+    'ruin',
+    'ruins',
+    'sanctum',
+    'sea',
+    'settlement',
+    'sewer',
+    'sewers',
+    'shop',
+    'shrine',
+    'square',
+    'stable',
+    'stronghold',
+    'swamp',
+    'tavern',
+    'temple',
+    'throne room',
+    'tower',
+    'trail',
+    'tunnel',
+    'tunnels',
+    'valley',
+    'village',
+    'watchtower',
+    'wood',
+    'woods',
+    'dominion',
+    'observatory',
+    'shores',
+    'spires',
+    'reach',
+    'expanse',
+    'lips',
 )
 
-STANDALONE_PLACE_WORDS = (
-    "Castle",
-    "Temple",
-    "Dungeon",
-    "Tavern",
-    "Village",
-    "City",
-)
+STANDALONE_PLACE_WORDS = ('Castle', 'Temple', 'Dungeon', 'Tavern', 'Village', 'City')
 
 # Small built-in gazetteer for common examples and likely campaign locations.
 KNOWN_LOCATIONS = {
-    "Andhra Pradesh",
-    "Aethergate",
-    "Avernus",
-    "Barovia",
-    "Berlin",
-    "Black River",
-    "Citadel of Arcanis",
-    "Crystal Forest",
-    "Dragon Hill",
-    "Eastmere",
-    "Emerald Plains",
-    "Frostmere Pass",
-    "Frostwind Valley",
-    "Green Forest",
-    "India",
-    "Ironkeep City",
-    "Isle of Storms",
-    "Kingdom of Valoria",
-    "Moon Temple",
-    "New York",
-    "Northwatch",
-    "Obsidian Cliffs",
-    "Oakwood Village",
-    "Phandalin",
-    "Ravenloft",
-    "Raven Peak",
-    "Riverstone Town",
-    "Ruins of Eldermoor",
-    "Shadow Cave",
-    "Shattered Coast",
-    "Silver Harbor",
-    "Silver Lake",
-    "Sunfall Fortress",
-    "Waterdeep",
-    "Neverwinter",
+    'Andhra Pradesh',
+    'Aethergate',
+    'Avernus',
+    'Barovia',
+    'Berlin',
+    'Black River',
+    'Citadel of Arcanis',
+    'Crystal Forest',
+    'Dragon Hill',
+    'Eastmere',
+    'Emerald Plains',
+    'Frostmere Pass',
+    'Frostwind Valley',
+    'Green Forest',
+    'India',
+    'Ironkeep City',
+    'Isle of Storms',
+    'Kingdom of Valoria',
+    'Moon Temple',
+    'New York',
+    'Northwatch',
+    'Obsidian Cliffs',
+    'Oakwood Village',
+    'Phandalin',
+    'Ravenloft',
+    'Raven Peak',
+    'Riverstone Town',
+    'Ruins of Eldermoor',
+    'Shadow Cave',
+    'Shattered Coast',
+    'Silver Harbor',
+    'Silver Lake',
+    'Sunfall Fortress',
+    'Waterdeep',
+    'Neverwinter',
     "Baldur's Gate",
-    "Whispering Lake",
+    'Whispering Lake',
 }
 
 LOCATION_PREPOSITIONS = (
-    "at",
-    "in",
-    "inside",
-    "into",
-    "near",
-    "outside",
-    "toward",
-    "towards",
-    "to",
-    "from",
-    "through",
-    "under",
-    "beneath",
-    "below",
-    "above",
-    "around",
-    "behind",
-    "beside",
+    'at',
+    'in',
+    'inside',
+    'into',
+    'near',
+    'outside',
+    'toward',
+    'towards',
+    'to',
+    'from',
+    'through',
+    'under',
+    'beneath',
+    'below',
+    'above',
+    'around',
+    'behind',
+    'beside',
 )
 
 LOCATION_VERBS = (
-    "approached",
-    "arrived",
-    "camped",
-    "crossed",
-    "entered",
-    "escaped",
-    "explored",
-    "fled",
-    "followed",
-    "found",
-    "left",
-    "reached",
-    "returned",
-    "reach",
-    "searched",
-    "traveled",
-    "travelled",
-    "visited",
+    'approached',
+    'arrived',
+    'camped',
+    'crossed',
+    'entered',
+    'escaped',
+    'explored',
+    'fled',
+    'followed',
+    'found',
+    'left',
+    'reached',
+    'returned',
+    'reach',
+    'searched',
+    'traveled',
+    'travelled',
+    'visited',
 )
 
-_MONTH_PATTERN = "|".join(MONTHS)
-_WEEKDAY_PATTERN = "|".join(WEEKDAYS)
-_LOCAL_PREFIX_PATTERN = "|".join(LOCAL_PLACE_PREFIXES)
-_STANDALONE_PLACE_PATTERN = "|".join(STANDALONE_PLACE_WORDS)
-_PLACE_NOUN_PATTERN = "|".join(re.escape(noun) for noun in sorted(PLACE_NOUNS, key=len, reverse=True))
-_LOCATION_PREPOSITION_PATTERN = "|".join(LOCATION_PREPOSITIONS)
-_LOCATION_VERB_PATTERN = "|".join(LOCATION_VERBS)
+_MONTH_PATTERN = '|'.join(MONTHS)
+_WEEKDAY_PATTERN = '|'.join(WEEKDAYS)
+_LOCAL_PREFIX_PATTERN = '|'.join(LOCAL_PLACE_PREFIXES)
+_STANDALONE_PLACE_PATTERN = '|'.join(STANDALONE_PLACE_WORDS)
+_PLACE_NOUN_PATTERN = '|'.join(
+    re.escape(noun) for noun in sorted(PLACE_NOUNS, key=len, reverse=True)
+)
+_LOCATION_PREPOSITION_PATTERN = '|'.join(LOCATION_PREPOSITIONS)
+_LOCATION_VERB_PATTERN = '|'.join(LOCATION_VERBS)
 
 TEMPORAL_PATTERNS = [
     *[re.compile(pattern, re.IGNORECASE) for pattern in DOCX_TEMPORAL_PATTERNS],
-    re.compile(r"\b(?:%s)\b" % "|".join(RELATIVE_TIME_WORDS), re.IGNORECASE),
-    re.compile(r"\b(?:%s)\b" % "|".join(RELATIVE_TIME_PHRASES), re.IGNORECASE),
-    re.compile(rf"\b(?:{_WEEKDAY_PATTERN})\b", re.IGNORECASE),
-    re.compile(rf"\b\d{{1,2}}\s+(?:{_MONTH_PATTERN})\s+\d{{4}}\b", re.IGNORECASE),
-    re.compile(rf"\b(?:{_MONTH_PATTERN})\s+\d{{1,2}}(?:st|nd|rd|th)?(?:,\s*\d{{4}})?\b", re.IGNORECASE),
-    re.compile(r"\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b"),
-    re.compile(r"\b(?:19|20)\d{2}\b"),
-    re.compile(r"\b\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)?\b"),
-    re.compile(r"\b\d{1,2}\.\d{2}\s*(?:AM|PM|am|pm)\b", re.IGNORECASE),
-    re.compile(r"(?<!:)\b\d{1,2}\s*(?:AM|PM|am|pm)\b"),
+    re.compile(r'\b(?:{})\b'.format('|'.join(RELATIVE_TIME_WORDS)), re.IGNORECASE),
+    re.compile(r'\b(?:{})\b'.format('|'.join(RELATIVE_TIME_PHRASES)), re.IGNORECASE),
+    re.compile(rf'\b(?:{_WEEKDAY_PATTERN})\b', re.IGNORECASE),
+    re.compile(rf'\b\d{{1,2}}\s+(?:{_MONTH_PATTERN})\s+\d{{4}}\b', re.IGNORECASE),
+    re.compile(
+        rf'\b(?:{_MONTH_PATTERN})\s+\d{{1,2}}(?:st|nd|rd|th)?(?:,\s*\d{{4}})?\b', re.IGNORECASE
+    ),
+    re.compile(r'\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b'),
+    re.compile(r'\b(?:19|20)\d{2}\b'),
+    re.compile(r'\b\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)?\b'),
+    re.compile(r'\b\d{1,2}\.\d{2}\s*(?:AM|PM|am|pm)\b', re.IGNORECASE),
+    re.compile(r'(?<!:)\b\d{1,2}\s*(?:AM|PM|am|pm)\b'),
 ]
 
 TEMPORAL_SIGNAL_PATTERN = re.compile(
-    rf"\b("
-    rf"{_WEEKDAY_PATTERN}|{_MONTH_PATTERN}|"
-    r"today|yesterday|tomorrow|tonight|morning|noon|afternoon|evening|night|"
-    r"midnight|sunrise|sunset|dawn|dusk|week|weeks|month|months|year|years|"
-    r"day|days|hour|hours|minute|minutes|before|after|during|around|between|"
-    r"approximately|past|next|last|following"
-    r")\b|"
-    r"\b\d{1,2}:\d{2}\b|\b\d{1,2}\s*(?:AM|PM|am|pm)\b|\b(?:19|20)\d{2}\b",
+    rf'\b('
+    rf'{_WEEKDAY_PATTERN}|{_MONTH_PATTERN}|'
+    r'today|yesterday|tomorrow|tonight|morning|noon|afternoon|evening|night|'
+    r'midnight|sunrise|sunset|dawn|dusk|week|weeks|month|months|year|years|'
+    r'day|days|hour|hours|minute|minutes|before|after|during|around|between|'
+    r'approximately|past|next|last|following'
+    r')\b|'
+    r'\b\d{1,2}:\d{2}\b|\b\d{1,2}\s*(?:AM|PM|am|pm)\b|\b(?:19|20)\d{2}\b',
     re.IGNORECASE,
 )
 
 LOCATION_SUFFIXES = tuple(
     sorted(
         {
-            "Bridge",
-            "Cave",
-            "City",
-            "Cliffs",
-            "Coast",
-            "Forest",
-            "Fortress",
-            "Harbor",
-            "Hideout",
-            "Hill",
-            "Isle",
-            "Lake",
-            "Pass",
-            "Peninsula",
-            "Peak",
-            "Plains",
-            "River",
-            "Road",
-            "Shrine",
-            "Temple",
-            "Town",
-            "Valley",
-            "Village",
-            "Wood",
-            "Woods",
+            'Bridge',
+            'Cave',
+            'City',
+            'Cliffs',
+            'Coast',
+            'Forest',
+            'Fortress',
+            'Harbor',
+            'Hideout',
+            'Hill',
+            'Isle',
+            'Lake',
+            'Pass',
+            'Peninsula',
+            'Peak',
+            'Plains',
+            'River',
+            'Road',
+            'Shrine',
+            'Temple',
+            'Town',
+            'Valley',
+            'Village',
+            'Wood',
+            'Woods',
         },
         key=len,
         reverse=True,
     )
 )
-_LOCATION_SUFFIX_PATTERN = "|".join(LOCATION_SUFFIXES)
+_LOCATION_SUFFIX_PATTERN = '|'.join(LOCATION_SUFFIXES)
 
 PROPER_LOCATION_PATTERN = re.compile(
     rf"\b[A-Z][A-Za-z'-]+(?:\s+[A-Z][A-Za-z'-]+){{0,3}}\s+(?:{_LOCATION_SUFFIX_PATTERN})\b"
 )
 
 NAMED_PLACE_NOUN_PATTERN = re.compile(
-    rf"\b(?i:(?:the\s+)?(?:(?:{_PLACE_NOUN_PATTERN})\s+of\s+|(?:{_PLACE_NOUN_PATTERN})\s+))"
-    r"([A-Z][A-Za-z'-]+(?:\s+[A-Z][A-Za-z'-]+){0,3})\b",
+    rf'\b(?i:(?:the\s+)?(?:(?:{_PLACE_NOUN_PATTERN})\s+of\s+|(?:{_PLACE_NOUN_PATTERN})\s+))'
+    r"([A-Z][A-Za-z'-]+(?:\s+[A-Z][A-Za-z'-]+){0,3})\b"
 )
 
 LOWERCASE_FANTASY_PLACE_PATTERN = re.compile(
     r"\b(?:the\s+)?(?:floating\s+lips\s+of\s+[A-Za-z'-]+(?:\s+[A-Za-z'-]+){0,2}|"
     r"crystal\s+expanse\s+of\s+[A-Za-z'-]+|"
     r"obsidian\s+spires\s+of\s+[A-Za-z'-]+|"
-    r"fall\s+citadel|"
-    r"azure\s+labyrinth|"
+    r'fall\s+citadel|'
+    r'azure\s+labyrinth|'
     r"pimple\s+of\s+[A-Za-z'-]+(?:\s+[A-Za-z'-]+){0,2})\b",
     re.IGNORECASE,
 )
@@ -419,151 +403,143 @@ KNOWN_AS_LOCATION_PATTERN = re.compile(
 )
 
 LOCAL_PLACE_PATTERN = re.compile(
-    rf"\b(?:{_LOCAL_PREFIX_PATTERN})\s+(?:[A-Z]|\d+[A-Za-z]?|[A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+)?)\b"
+    rf'\b(?:{_LOCAL_PREFIX_PATTERN})\s+(?:[A-Z]|\d+[A-Za-z]?|[A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+)?)\b'
 )
 STANDALONE_LOCAL_PLACE_PATTERN = re.compile(
-    rf"\b(?:the\s+)?(?:{_STANDALONE_PLACE_PATTERN})\b",
-    re.IGNORECASE,
+    rf'\b(?:the\s+)?(?:{_STANDALONE_PLACE_PATTERN})\b', re.IGNORECASE
 )
 WORD_PATTERN = re.compile(r"[A-Za-z][A-Za-z'-]*|\d+[A-Za-z]?")
 PREPOSITIONAL_LOCATION_PATTERN = re.compile(
     rf"\b(?:{_LOCATION_PREPOSITION_PATTERN})\s+((?:the\s+)?[A-Z][A-Za-z'-]+(?:\s+[A-Z0-9][A-Za-z0-9'-]*){{0,4}})\b"
 )
 VERB_LOCATION_PATTERN = re.compile(
-    rf"\b(?:{_LOCATION_VERB_PATTERN})\s+((?:the\s+)?[A-Z][A-Za-z'-]+(?:\s+[A-Z0-9][A-Za-z0-9'-]*){{0,4}})\b",
+    rf"\b(?:{_LOCATION_VERB_PATTERN})\s+((?:the\s+)?[A-Z][A-Za-z'-]+(?:\s+[A-Z0-9][A-Za-z0-9'-]*){{0,4}})\b"
 )
 OF_LOCATION_PATTERN = re.compile(
-    rf"\b(?:the\s+)?(?i:(?:{_PLACE_NOUN_PATTERN}))\s+of\s+(?:the\s+)?[A-Z][A-Za-z'-]+(?:\s+[A-Z][A-Za-z'-]+){{0,3}}\b",
+    rf"\b(?:the\s+)?(?i:(?:{_PLACE_NOUN_PATTERN}))\s+of\s+(?:the\s+)?[A-Z][A-Za-z'-]+(?:\s+[A-Z][A-Za-z'-]+){{0,3}}\b"
 )
 
 LOCATION_STOPWORDS = {
-    "the",
-    "a",
-    "an",
-    "and",
-    "or",
-    "but",
-    "we",
-    "you",
-    "they",
-    "he",
-    "she",
-    "it",
-    "next",
-    "last",
-    "this",
+    'the',
+    'a',
+    'an',
+    'and',
+    'or',
+    'but',
+    'we',
+    'you',
+    'they',
+    'he',
+    'she',
+    'it',
+    'next',
+    'last',
+    'this',
 }
 
 NON_LOCATION_DESCRIPTORS = {
-    "arrived",
-    "camped",
-    "crossed",
-    "discovered",
-    "entered",
-    "escaped",
-    "established",
-    "followed",
-    "found",
-    "go",
-    "left",
-    "met",
-    "party",
-    "returns",
-    "searched",
-    "then",
-    "visited",
-    "went",
+    'arrived',
+    'camped',
+    'crossed',
+    'discovered',
+    'entered',
+    'escaped',
+    'established',
+    'followed',
+    'found',
+    'go',
+    'left',
+    'met',
+    'party',
+    'returns',
+    'searched',
+    'then',
+    'visited',
+    'went',
 }
 
 LOCATION_DESCRIPTORS = {
-    "ancient",
-    "azure",
-    "black",
-    "blue",
-    "broken",
-    "burning",
-    "dark",
-    "dead",
-    "deep",
-    "dense",
-    "dragon",
-    "dwarven",
-    "east",
-    "eastern",
-    "elven",
-    "enchanted",
-    "forgotten",
-    "goblin",
-    "green",
-    "hidden",
-    "high",
-    "haunted",
-    "crystal",
-    "floating",
-    "obsidian",
-    "roomed",
-    "ethyral",
-    "lost",
-    "lower",
-    "misty",
-    "north",
-    "northern",
-    "old",
-    "red",
-    "ruined",
-    "secret",
-    "shadow",
-    "silver",
-    "south",
-    "southern",
-    "stone",
-    "sunken",
-    "underground",
-    "upper",
-    "west",
-    "western",
-    "white",
+    'ancient',
+    'azure',
+    'black',
+    'blue',
+    'broken',
+    'burning',
+    'dark',
+    'dead',
+    'deep',
+    'dense',
+    'dragon',
+    'dwarven',
+    'east',
+    'eastern',
+    'elven',
+    'enchanted',
+    'forgotten',
+    'goblin',
+    'green',
+    'hidden',
+    'high',
+    'haunted',
+    'crystal',
+    'floating',
+    'obsidian',
+    'roomed',
+    'ethyral',
+    'lost',
+    'lower',
+    'misty',
+    'north',
+    'northern',
+    'old',
+    'red',
+    'ruined',
+    'secret',
+    'shadow',
+    'silver',
+    'south',
+    'southern',
+    'stone',
+    'sunken',
+    'underground',
+    'upper',
+    'west',
+    'western',
+    'white',
 }
 
-GENERIC_LOCATION_NOUNS_TO_SKIP = {
-    "camp",
-    "campsite",
-    "cave",
-    "road",
-    "trail",
-    "village",
-}
+GENERIC_LOCATION_NOUNS_TO_SKIP = {'camp', 'campsite', 'cave', 'road', 'trail', 'village'}
 
 TRAILING_CLAUSE_WORDS = {
-    "and",
-    "but",
-    "or",
-    "then",
-    "where",
-    "when",
-    "while",
-    "before",
-    "after",
-    "at",
-    "in",
-    "on",
-    "with",
+    'and',
+    'but',
+    'or',
+    'then',
+    'where',
+    'when',
+    'while',
+    'before',
+    'after',
+    'at',
+    'in',
+    'on',
+    'with',
 }
 
 TRAILING_VERBS = {
-    "arrived",
-    "attacked",
-    "camped",
-    "crossed",
-    "entered",
-    "fought",
-    "found",
-    "left",
-    "met",
-    "returned",
-    "searched",
-    "saw",
-    "went",
+    'arrived',
+    'attacked',
+    'camped',
+    'crossed',
+    'entered',
+    'fought',
+    'found',
+    'left',
+    'met',
+    'returned',
+    'searched',
+    'saw',
+    'went',
 }
 
 
@@ -575,7 +551,7 @@ def _looks_like_described_place(value: str) -> bool:
         return False
     # Avoid returning every bare generic noun; keep useful standalone game places.
     if len(words) == 1:
-        return words[0] in {"castle", "temple", "dungeon", "tavern", "village", "city"}
+        return words[0] in {'castle', 'temple', 'dungeon', 'tavern', 'village', 'city'}
     content_words = [word for word in words[:-1] if word not in LOCATION_STOPWORDS]
     if any(word in NON_LOCATION_DESCRIPTORS for word in content_words):
         return False
@@ -590,19 +566,19 @@ def _is_capitalized(value: str) -> bool:
 
 def _candidate_score(value: str) -> int:
     words = value.split()
-    lowered = [word.casefold().strip(".,;:!?") for word in words]
+    lowered = [word.casefold().strip('.,;:!?') for word in words]
     score = len(words)
     if lowered and lowered[-1] in PLACE_NOUNS:
         score += 6
     if lowered and lowered[0] in PLACE_NOUNS:
         score += 6
-    if len(lowered) > 1 and lowered[0] in {"the", "a", "an"} and lowered[1] in PLACE_NOUNS:
+    if len(lowered) > 1 and lowered[0] in {'the', 'a', 'an'} and lowered[1] in PLACE_NOUNS:
         score += 6
-    if lowered and lowered[0] in {"the", "a", "an"}:
+    if lowered and lowered[0] in {'the', 'a', 'an'}:
         score += 1
     if any(word in LOCATION_DESCRIPTORS for word in lowered):
         score += 2
-    if any(_is_capitalized(word.strip(".,;:!?")) for word in words):
+    if any(_is_capitalized(word.strip('.,;:!?')) for word in words):
         score += 3
     if any(word in NON_LOCATION_DESCRIPTORS for word in lowered):
         score -= 10
@@ -613,18 +589,18 @@ def _clean_location_candidate(value: str) -> str:
     words = WORD_PATTERN.findall(value)
     while words and words[0].casefold() in LOCATION_PREPOSITIONS + LOCATION_VERBS:
         words.pop(0)
-    while words and words[0].casefold() in {"we", "they", "party", "group"}:
+    while words and words[0].casefold() in {'we', 'they', 'party', 'group'}:
         words.pop(0)
     while words and words[-1].casefold() in TRAILING_CLAUSE_WORDS | TRAILING_VERBS:
         words.pop()
-    return " ".join(words)
+    return ' '.join(words)
 
 
 def _find_place_noun_candidates(text: str) -> list[str]:
     candidates = []
-    descriptor_pattern = "|".join(sorted(LOCATION_DESCRIPTORS, key=len, reverse=True))
+    descriptor_pattern = '|'.join(sorted(LOCATION_DESCRIPTORS, key=len, reverse=True))
     pattern = re.compile(
-        rf"\b(?:the|a|an)\s+(?:(?:{descriptor_pattern})\s+){{0,3}}(?:{_PLACE_NOUN_PATTERN})\b",
+        rf'\b(?:the|a|an)\s+(?:(?:{descriptor_pattern})\s+){{0,3}}(?:{_PLACE_NOUN_PATTERN})\b',
         re.IGNORECASE,
     )
     candidates.extend(match.group(0) for match in pattern.finditer(text))
@@ -634,7 +610,7 @@ def _find_place_noun_candidates(text: str) -> list[str]:
 def _find_single_named_locations_after_triggers(text: str) -> list[str]:
     candidates = []
     trigger_pattern = re.compile(
-        rf"\b(?:{_LOCATION_PREPOSITION_PATTERN}|{_LOCATION_VERB_PATTERN})\s+([A-Z][A-Za-z'-]+)\b",
+        rf"\b(?:{_LOCATION_PREPOSITION_PATTERN}|{_LOCATION_VERB_PATTERN})\s+([A-Z][A-Za-z'-]+)\b"
     )
     for match in trigger_pattern.finditer(text):
         candidate = _clean_location_candidate(match.group(1))
@@ -678,16 +654,22 @@ def _filter_location_candidates(values: list[str]) -> list[str]:
         lowered_words = lowered.split()
         if (
             len(lowered_words) >= 2
-            and lowered_words[0] == "the"
+            and lowered_words[0] == 'the'
             and lowered_words[-1] in GENERIC_LOCATION_NOUNS_TO_SKIP
-            and (len(lowered_words) == 2 or lowered_words[-1] in {"road", "trail", "camp", "campsite", "village"})
+            and (
+                len(lowered_words) == 2
+                or lowered_words[-1] in {'road', 'trail', 'camp', 'campsite', 'village'}
+            )
         ):
             continue
         if any(word in RELATIVE_TIME_WORDS for word in lowered.split()):
             continue
-        if " and " in lowered:
+        if ' and ' in lowered:
             continue
-        if any(word in {"before", "after", "towards", "toward", "prepared", "travelled", "traveled"} for word in lowered.split()):
+        if any(
+            word in {'before', 'after', 'towards', 'toward', 'prepared', 'travelled', 'traveled'}
+            for word in lowered.split()
+        ):
             continue
         if lowered in {month.casefold() for month in MONTHS}:
             continue
@@ -699,7 +681,7 @@ def _dedupe_preserving_order(values: list[str]) -> list[str]:
     seen = set()
     result = []
     for value in values:
-        normalized = " ".join(value.strip().split())
+        normalized = ' '.join(value.strip().split())
         if not normalized:
             continue
         key = normalized.casefold()
@@ -714,7 +696,7 @@ def _merge_entities(primary: list[str], secondary: list[str]) -> list[str]:
     merged = list(primary)
     seen = {value.casefold() for value in merged}
     for value in secondary:
-        normalized = " ".join(str(value).strip().split())
+        normalized = ' '.join(str(value).strip().split())
         if not normalized:
             continue
         key = normalized.casefold()
@@ -736,13 +718,13 @@ def _safe_json_from_llm_response(content: str) -> dict[str, Any]:
     except json.JSONDecodeError:
         pass
 
-    start = content.find("{")
-    end = content.rfind("}")
+    start = content.find('{')
+    end = content.rfind('}')
     if start < 0 or end <= start:
         return {}
 
     try:
-        parsed = json.loads(content[start:end + 1])
+        parsed = json.loads(content[start : end + 1])
         return parsed if isinstance(parsed, dict) else {}
     except json.JSONDecodeError:
         return {}
@@ -751,40 +733,36 @@ def _safe_json_from_llm_response(content: str) -> dict[str, Any]:
 def _coerce_entity_list(value: Any) -> list[str]:
     if not isinstance(value, list):
         return []
-    return [
-        " ".join(str(item).strip().split())
-        for item in value
-        if str(item).strip()
-    ]
+    return [' '.join(str(item).strip().split()) for item in value if str(item).strip()]
 
 
 def _strip_llm_description(value: str) -> str:
-    cleaned = " ".join(str(value).strip().split())
-    if ":" in cleaned:
-        cleaned = cleaned.split(":", 1)[0].strip()
-    if " - " in cleaned:
-        cleaned = cleaned.split(" - ", 1)[0].strip()
-    return cleaned.strip(" .,;:-")
+    cleaned = ' '.join(str(value).strip().split())
+    if ':' in cleaned:
+        cleaned = cleaned.split(':', 1)[0].strip()
+    if ' - ' in cleaned:
+        cleaned = cleaned.split(' - ', 1)[0].strip()
+    return cleaned.strip(' .,;:-')
 
 
 def _exact_text_span(value: str, text: str) -> str:
     if not value:
-        return ""
+        return ''
     match = re.search(re.escape(value), text, re.IGNORECASE)
     if not match:
-        return ""
-    return text[match.start():match.end()]
+        return ''
+    return text[match.start() : match.end()]
 
 
 def _is_valid_temporal_entity(value: str, text: str) -> str:
     cleaned = _strip_llm_description(value)
     exact = _exact_text_span(cleaned, text)
     if not exact:
-        return ""
+        return ''
     if not TEMPORAL_SIGNAL_PATTERN.search(exact):
-        return ""
+        return ''
     if len(exact.split()) > 10:
-        return ""
+        return ''
     return exact
 
 
@@ -792,81 +770,85 @@ def _is_valid_location_entity(value: str, text: str) -> str:
     cleaned = _strip_llm_description(value)
     exact = _exact_text_span(cleaned, text)
     if not exact:
-        return ""
+        return ''
     if TEMPORAL_SIGNAL_PATTERN.fullmatch(exact.strip()):
-        return ""
-    if any(char in exact for char in ".?!"):
-        return ""
+        return ''
+    if any(char in exact for char in '.?!'):
+        return ''
     if len(exact.split()) > 8:
-        return ""
-    if exact.casefold() in {"messenger", "representative", "royal family", "group", "party"}:
-        return ""
+        return ''
+    if exact.casefold() in {'messenger', 'representative', 'royal family', 'group', 'party'}:
+        return ''
     return exact
 
 
 def _sanitize_llm_entities(entities: ExtractedEntities, text: str) -> ExtractedEntities:
     temporal_entities = _dedupe_preserving_order(
         entity
-        for entity in (_is_valid_temporal_entity(value, text) for value in entities.temporal_entities)
+        for entity in (
+            _is_valid_temporal_entity(value, text) for value in entities.temporal_entities
+        )
         if entity
     )
     location_entities = _dedupe_preserving_order(
         entity
-        for entity in (_is_valid_location_entity(value, text) for value in entities.location_entities)
+        for entity in (
+            _is_valid_location_entity(value, text) for value in entities.location_entities
+        )
         if entity
     )
     return ExtractedEntities(
-        temporal_entities=temporal_entities,
-        location_entities=location_entities,
+        temporal_entities=temporal_entities, location_entities=location_entities
     )
 
 
 def _extract_entities_with_local_llm(text: str, timeout_seconds: float = 25.0) -> ExtractedEntities:
     try:
         from app.core.config import settings
+
         llm_model = settings.llm_model
         ollama_url = settings.ollama_url
     except Exception:
-        llm_model = "hf.co/bartowski/mistralai_Ministral-3-3B-Instruct-2512-GGUF:Q5_K_M"
-        ollama_url = "http://localhost:11434"
+        llm_model = 'hf.co/bartowski/mistralai_Ministral-3-3B-Instruct-2512-GGUF:Q5_K_M'
+        ollama_url = 'http://localhost:11434'
 
     payload = {
-        "model": llm_model,
-        "stream": False,
-        "messages": [
-            {"role": "system", "content": LLM_ENTITY_SYSTEM_PROMPT},
+        'model': llm_model,
+        'stream': False,
+        'messages': [
+            {'role': 'system', 'content': LLM_ENTITY_SYSTEM_PROMPT},
             {
-                "role": "user",
-                "content": (
-                    "Extract temporal and location entities from this text.\n\n"
-                    f"TEXT:\n{text}\n\n"
-                    "Return JSON only, for example: "
-                    "{\"temporal_entities\": [\"...\"], \"location_entities\": [\"...\"]}"
+                'role': 'user',
+                'content': (
+                    'Extract temporal and location entities from this text.\n\n'
+                    f'TEXT:\n{text}\n\n'
+                    'Return JSON only, for example: '
+                    '{"temporal_entities": ["..."], "location_entities": ["..."]}'
                 ),
             },
         ],
-        "format": "json",
+        'format': 'json',
     }
 
     try:
         request = Request(
-            f"{ollama_url}/api/chat",
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST",
+            f'{ollama_url}/api/chat',
+            data=json.dumps(payload).encode('utf-8'),
+            headers={'Content-Type': 'application/json'},
+            method='POST',
         )
         with urlopen(request, timeout=timeout_seconds) as response:
-            response_json = json.loads(response.read().decode("utf-8"))
+            response_json = json.loads(response.read().decode('utf-8'))
     except (HTTPError, URLError, TimeoutError, OSError, json.JSONDecodeError):
         return ExtractedEntities(temporal_entities=[], location_entities=[])
 
-    message = response_json.get("message", {})
-    content = message.get("content", "") if isinstance(message, dict) else ""
+    message = response_json.get('message', {})
+    content = message.get('content', '') if isinstance(message, dict) else ''
     parsed = _safe_json_from_llm_response(content)
 
     extracted = ExtractedEntities(
-        temporal_entities=_coerce_entity_list(parsed.get("temporal_entities")),
-        location_entities=_coerce_entity_list(parsed.get("location_entities")),
+        temporal_entities=_coerce_entity_list(parsed.get('temporal_entities')),
+        location_entities=_coerce_entity_list(parsed.get('location_entities')),
     )
     return _sanitize_llm_entities(extracted, text)
 
@@ -876,13 +858,10 @@ def _dedupe_spans_preserving_order(matches: list[tuple[int, int, str]]) -> list[
     kept: list[tuple[int, int, str]] = []
 
     for start, end, value in sorted_matches:
-        normalized = " ".join(value.strip().split())
+        normalized = ' '.join(value.strip().split())
         if not normalized:
             continue
-        is_nested = any(
-            kept_start <= start and end <= kept_end
-            for kept_start, kept_end, _ in kept
-        )
+        is_nested = any(kept_start <= start and end <= kept_end for kept_start, kept_end, _ in kept)
         if is_nested:
             continue
         if any(normalized.casefold() == kept_value.casefold() for _, _, kept_value in kept):
@@ -895,18 +874,18 @@ def _dedupe_spans_preserving_order(matches: list[tuple[int, int, str]]) -> list[
 def _extract_temporal_entities(text: str) -> list[str]:
     matches = []
     for pattern in TEMPORAL_PATTERNS:
-        matches.extend((match.start(), match.end(), match.group(0)) for match in pattern.finditer(text))
+        matches.extend(
+            (match.start(), match.end(), match.group(0)) for match in pattern.finditer(text)
+        )
 
     temporal_entities = _dedupe_spans_preserving_order(matches)
     normalized = []
     for entity in temporal_entities:
-        clean = " ".join(entity.split())
-        if clean.casefold() == "the morning of march 17, 2025":
-            clean = "Morning of March 17, 2025"
-        elif clean.casefold() == "for the night":
-            clean = "Night"
-        elif clean.casefold() == "night":
-            clean = "Night"
+        clean = ' '.join(entity.split())
+        if clean.casefold() == 'the morning of march 17, 2025':
+            clean = 'Morning of March 17, 2025'
+        elif clean.casefold() == 'for the night' or clean.casefold() == 'night':
+            clean = 'Night'
         normalized.append(clean)
     return normalized
 
@@ -914,45 +893,49 @@ def _extract_temporal_entities(text: str) -> list[str]:
 def _normalize_location_output(value: str) -> str:
     words = WORD_PATTERN.findall(value)
     if not words:
-        return ""
+        return ''
 
     lowered = [word.casefold() for word in words]
     while lowered and lowered[0] in {
-        "a",
-        "an",
-        "small",
-        "hidden",
-        "abandoned",
-        "temporary",
-        "northern",
-        "western",
-        "eastern",
-        "southern",
-        "edge",
-        "region",
-        "governor",
-        "water",
-        "cave",
-        "entrance",
-        "of",
+        'a',
+        'an',
+        'small',
+        'hidden',
+        'abandoned',
+        'temporary',
+        'northern',
+        'western',
+        'eastern',
+        'southern',
+        'edge',
+        'region',
+        'governor',
+        'water',
+        'cave',
+        'entrance',
+        'of',
     }:
         words.pop(0)
         lowered.pop(0)
 
-    candidate = " ".join(words).strip()
+    candidate = ' '.join(words).strip()
     candidate_words = candidate.split()
     if (
         len(candidate_words) > 1
-        and candidate_words[0].casefold() == "the"
+        and candidate_words[0].casefold() == 'the'
         and candidate_words[1][0].isupper()
     ):
-        candidate = " ".join(candidate_words[1:])
-    if candidate.casefold() == "watchtower":
-        return "Watchtower"
-    if candidate.casefold() in {"grand hall", "the grand hall"}:
-        return ""
-    if candidate.casefold() in {"grand hall of aethergate", "hall of aethergate", "the grand hall of aethergate"}:
-        return "Aethergate"
+        candidate = ' '.join(candidate_words[1:])
+    if candidate.casefold() == 'watchtower':
+        return 'Watchtower'
+    if candidate.casefold() in {'grand hall', 'the grand hall'}:
+        return ''
+    if candidate.casefold() in {
+        'grand hall of aethergate',
+        'hall of aethergate',
+        'the grand hall of aethergate',
+    }:
+        return 'Aethergate'
     return candidate
 
 
@@ -960,7 +943,7 @@ def _location_matches_from_patterns(text: str) -> list[tuple[int, int, str]]:
     matches: list[tuple[int, int, str]] = []
 
     for location in sorted(KNOWN_LOCATIONS, key=len, reverse=True):
-        for match in re.finditer(rf"\b{re.escape(location)}\b", text, re.IGNORECASE):
+        for match in re.finditer(rf'\b{re.escape(location)}\b', text, re.IGNORECASE):
             matches.append((match.start(), match.end(), location))
 
     for pattern in (
@@ -987,18 +970,22 @@ def _location_matches_from_patterns(text: str) -> list[tuple[int, int, str]]:
             if normalized:
                 matches.append((match.start(), match.end(), normalized))
 
-    for match in re.finditer(r"\blocations?\s+of\s+([A-Z][A-Za-z'-]+(?:\s+[A-Z][A-Za-z'-]+){0,3})\b", text):
+    for match in re.finditer(
+        r"\blocations?\s+of\s+([A-Z][A-Za-z'-]+(?:\s+[A-Z][A-Za-z'-]+){0,3})\b", text
+    ):
         normalized = _normalize_location_output(match.group(1))
         if normalized:
             matches.append((match.start(1), match.end(1), normalized))
 
-    for match in re.finditer(r"\bfall\s+of\s+([A-Z][A-Za-z'-]+(?:\s+[A-Z][A-Za-z'-]+){0,3})\b", text):
+    for match in re.finditer(
+        r"\bfall\s+of\s+([A-Z][A-Za-z'-]+(?:\s+[A-Z][A-Za-z'-]+){0,3})\b", text
+    ):
         normalized = _normalize_location_output(match.group(1))
         if normalized:
             matches.append((match.start(1), match.end(1), normalized))
 
-    for match in re.finditer(r"\b(?:an?\s+)?(?:abandoned\s+)?watchtower\b", text, re.IGNORECASE):
-        matches.append((match.start(), match.end(), "Watchtower"))
+    for match in re.finditer(r'\b(?:an?\s+)?(?:abandoned\s+)?watchtower\b', text, re.IGNORECASE):
+        matches.append((match.start(), match.end(), 'Watchtower'))
 
     return matches
 
@@ -1032,12 +1019,10 @@ def extract_entities_hybrid(text: str, use_llm: bool = True) -> ExtractedEntitie
     llm_entities = _sanitize_llm_entities(_extract_entities_with_local_llm(text), text)
     return ExtractedEntities(
         temporal_entities=_merge_entities(
-            rule_entities.temporal_entities,
-            llm_entities.temporal_entities,
+            rule_entities.temporal_entities, llm_entities.temporal_entities
         ),
         location_entities=_merge_entities(
-            rule_entities.location_entities,
-            llm_entities.location_entities,
+            rule_entities.location_entities, llm_entities.location_entities
         ),
     )
 
@@ -1045,6 +1030,6 @@ def extract_entities_hybrid(text: str, use_llm: bool = True) -> ExtractedEntitie
 def entities_as_metadata(text: str, use_llm: bool = False) -> dict[str, str]:
     entities = extract_entities_hybrid(text, use_llm=use_llm)
     return {
-        "temporal_entities": ", ".join(entities.temporal_entities),
-        "location_entities": ", ".join(entities.location_entities),
+        'temporal_entities': ', '.join(entities.temporal_entities),
+        'location_entities': ', '.join(entities.location_entities),
     }

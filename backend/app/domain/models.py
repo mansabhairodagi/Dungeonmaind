@@ -1,28 +1,27 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from enum import Enum
-from typing import Dict, Optional
-from uuid import UUID, uuid4
-from datetime import datetime, timezone
+import base64
 import secrets
 import string
-import base64
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from enum import StrEnum
+from uuid import UUID, uuid4
 
 
-class Role(str, Enum):
-    leader = "leader"
-    member = "member"
+class Role(StrEnum):
+    leader = 'leader'
+    member = 'member'
 
 
-class PlayerStatus(str, Enum):
-    active = "active"
-    inactive = "inactive"
-    kicked = "kicked"
+class PlayerStatus(StrEnum):
+    active = 'active'
+    inactive = 'inactive'
+    kicked = 'kicked'
 
 
 def now_utc() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def make_join_code(length: int = 6) -> str:
@@ -30,7 +29,7 @@ def make_join_code(length: int = 6) -> str:
     Kurzer, menschenlesbarer Code (z.B. 'AB3FQ7') für den Gruppeneinstieg.
     """
     alphabet = string.ascii_uppercase + string.digits
-    return "".join(secrets.choice(alphabet) for _ in range(length))
+    return ''.join(secrets.choice(alphabet) for _ in range(length))
 
 
 @dataclass
@@ -50,6 +49,7 @@ class Hp:
     max: int = 10
     temp: int = 0
 
+
 @dataclass
 class Voiceprint:
     audio_bytes: bytes
@@ -68,7 +68,6 @@ class Player:
     abilities: Abilities = field(default_factory=Abilities)
     voiceprint: Voiceprint | None = None
 
-
     def touch(self) -> None:
         self.last_seen_at = now_utc()
 
@@ -84,12 +83,7 @@ class Player:
         if self.hp.temp < 0:
             self.hp.temp = 0
 
-    def set_hp(
-        self,
-        hp: int,
-        max_hp: Optional[int] = None,
-        temp_hp: Optional[int] = None,
-    ) -> None:
+    def set_hp(self, hp: int, max_hp: int | None = None, temp_hp: int | None = None) -> None:
         """
         Backwards-kompatible Signatur:
         - hp: neuer current HP
@@ -107,17 +101,14 @@ class Player:
         self.hp.current = min(self.hp.max, self.hp.current + max(0, int(amount)))
         return self.hp.current - before
 
-    def apply_damage(self, dmg: int) -> Dict[str, int]:
+    def apply_damage(self, dmg: int) -> dict[str, int]:
         dmg = max(0, int(dmg))
         from_temp = min(self.hp.temp, dmg)
         self.hp.temp -= from_temp
         remaining = dmg - from_temp
         before = self.hp.current
         self.hp.current = max(0, self.hp.current - remaining)
-        return {
-            "temp_absorbed": from_temp,
-            "hp_loss": before - self.hp.current,
-        }
+        return {'temp_absorbed': from_temp, 'hp_loss': before - self.hp.current}
 
     def set_max_hp(self, max_hp: int) -> None:
         """
@@ -127,7 +118,7 @@ class Player:
         """
         max_hp_int = int(max_hp)
         if max_hp_int < 1:
-            raise ValueError("max_hp must be at least 1")
+            raise ValueError('max_hp must be at least 1')
         self.hp.max = max_hp_int
         self.clamp()
 
@@ -135,89 +126,85 @@ class Player:
 
     def to_dict(self) -> dict:
         voice_dict = None
-        if getattr(self, "voiceprint", None) is not None:
+        if getattr(self, 'voiceprint', None) is not None:
             voice_dict = {
-                "content_type": self.voiceprint.content_type,
-                "audio_b64": base64.b64encode(self.voiceprint.audio_bytes).decode("ascii"),
+                'content_type': self.voiceprint.content_type,
+                'audio_b64': base64.b64encode(self.voiceprint.audio_bytes).decode('ascii'),
             }
 
         return {
-            "id": str(self.id),
-            "name": self.name,
-            "role": self.role.value,
-            "status": self.status.value,
-            "hp": {
-                "current": self.hp.current,
-                "max": self.hp.max,
-                "temp": self.hp.temp,
-            },
-            "abilities": {
-                "str": self.abilities.str,
-                "dex": self.abilities.dex,
-                "con": self.abilities.con,
-                "int_": self.abilities.int_,
-                "wis": self.abilities.wis,
-                "cha": self.abilities.cha,
+            'id': str(self.id),
+            'name': self.name,
+            'role': self.role.value,
+            'status': self.status.value,
+            'hp': {'current': self.hp.current, 'max': self.hp.max, 'temp': self.hp.temp},
+            'abilities': {
+                'str': self.abilities.str,
+                'dex': self.abilities.dex,
+                'con': self.abilities.con,
+                'int_': self.abilities.int_,
+                'wis': self.abilities.wis,
+                'cha': self.abilities.cha,
             }
             if self.abilities
             else None,
-            "voiceprint": voice_dict,
-            "created_at": self.created_at.isoformat(),
-            "last_seen_at": self.last_seen_at.isoformat(),
+            'voiceprint': voice_dict,
+            'created_at': self.created_at.isoformat(),
+            'last_seen_at': self.last_seen_at.isoformat(),
         }
 
     @classmethod
-    def  from_dict(cls, data: dict) -> "Player":
-        role = Role(data["role"])
+    def from_dict(cls, data: dict) -> Player:
+        role = Role(data['role'])
 
         if role == Role.leader:  # alle leader werden active gesetzt
-            status=PlayerStatus.active
-        elif PlayerStatus(data["status"]) == PlayerStatus.active:  # alle (noch) aktiven Player werden inactive, um rejoinen zu können
-            status=PlayerStatus.inactive
+            status = PlayerStatus.active
+        elif (
+            PlayerStatus(data['status']) == PlayerStatus.active
+        ):  # alle (noch) aktiven Player werden inactive, um rejoinen zu können
+            status = PlayerStatus.inactive
         else:
-            status = PlayerStatus(data["status"])  # Player die bereits inactive oder kicked sind behalten ihren Status
+            status = PlayerStatus(
+                data['status']
+            )  # Player die bereits inactive oder kicked sind behalten ihren Status
 
-        hp_field = data.get("hp") or {}
+        hp_field = data.get('hp') or {}
         hp = Hp(
-            current=int(hp_field.get("current", 10)),
-            max=int(hp_field.get("max", 10)),
-            temp=int(hp_field.get("temp", 0)),
+            current=int(hp_field.get('current', 10)),
+            max=int(hp_field.get('max', 10)),
+            temp=int(hp_field.get('temp', 0)),
         )
 
-        abilities_data = data.get("abilities") or {}
+        abilities_data = data.get('abilities') or {}
         abilities = Abilities(
-            str=int(abilities_data.get("str", 10)),
-            dex=int(abilities_data.get("dex", 10)),
-            con=int(abilities_data.get("con", 10)),
-            int_=int(abilities_data.get("int_", 10)),
-            wis=int(abilities_data.get("wis", 10)),
-            cha=int(abilities_data.get("cha", 10)),
+            str=int(abilities_data.get('str', 10)),
+            dex=int(abilities_data.get('dex', 10)),
+            con=int(abilities_data.get('con', 10)),
+            int_=int(abilities_data.get('int_', 10)),
+            wis=int(abilities_data.get('wis', 10)),
+            cha=int(abilities_data.get('cha', 10)),
         )
 
         voiceprint = None
-        voice_data = data.get("voiceprint")
-        if voice_data and voice_data.get("audio_b64"):
+        voice_data = data.get('voiceprint')
+        if voice_data and voice_data.get('audio_b64'):
             try:
-                audio_bytes = base64.b64decode(voice_data["audio_b64"])
-                content_type = voice_data.get("content_type", "application/octet-stream")
+                audio_bytes = base64.b64decode(voice_data['audio_b64'])
+                content_type = voice_data.get('content_type', 'application/octet-stream')
                 voiceprint = Voiceprint(audio_bytes=audio_bytes, content_type=content_type)
             except Exception:
                 voiceprint = None
 
         created_at = (
-            datetime.fromisoformat(data["created_at"])
-            if "created_at" in data
-            else now_utc()
+            datetime.fromisoformat(data['created_at']) if 'created_at' in data else now_utc()
         )
         last_seen_at = (
-            datetime.fromisoformat(data["last_seen_at"])
-            if "last_seen_at" in data
-            else created_at
+            datetime.fromisoformat(data['last_seen_at']) if 'last_seen_at' in data else created_at
         )
 
         return cls(
-            id=UUID(str(data["id"])),
-            name=data["name"],
+            id=UUID(str(data['id'])),
+            name=data['name'],
             role=role,
             status=status,
             hp=hp,
@@ -228,14 +215,14 @@ class Player:
         )
 
 
-class TimelineEventType(str, Enum):
-    combat = "combat"
-    discovery = "discovery"
-    dialogue = "dialogue"
-    travel = "travel"
-    rest = "rest"
-    quest = "quest"
-    other = "other"
+class TimelineEventType(StrEnum):
+    combat = 'combat'
+    discovery = 'discovery'
+    dialogue = 'dialogue'
+    travel = 'travel'
+    rest = 'rest'
+    quest = 'quest'
+    other = 'other'
 
 
 @dataclass
@@ -256,38 +243,38 @@ class TimelineEvent:
 
     def to_dict(self) -> dict:
         return {
-            "id": self.id,
-            "session_id": self.session_id,
-            "title": self.title,
-            "description": self.description,
-            "event_type": self.event_type.value,
-            "order": self.order,
-            "timestamp": self.timestamp,
-            "transcription_chunk_id": self.transcription_chunk_id,
-            "player_id": self.player_id,
-            "speaker_name": self.speaker_name,
-            "temporal_entities": self.temporal_entities,
-            "location_entities": self.location_entities,
-            "created_at": self.created_at.isoformat(),
+            'id': self.id,
+            'session_id': self.session_id,
+            'title': self.title,
+            'description': self.description,
+            'event_type': self.event_type.value,
+            'order': self.order,
+            'timestamp': self.timestamp,
+            'transcription_chunk_id': self.transcription_chunk_id,
+            'player_id': self.player_id,
+            'speaker_name': self.speaker_name,
+            'temporal_entities': self.temporal_entities,
+            'location_entities': self.location_entities,
+            'created_at': self.created_at.isoformat(),
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "TimelineEvent":
+    def from_dict(cls, data: dict) -> TimelineEvent:
         return cls(
-            id=data["id"],
-            session_id=data["session_id"],
-            title=data["title"],
-            description=data["description"],
-            event_type=TimelineEventType(data.get("event_type", "other")),
-            order=data.get("order", 0),
-            timestamp=data.get("timestamp", 0.0),
-            transcription_chunk_id=data.get("transcription_chunk_id"),
-            player_id=data.get("player_id"),
-            speaker_name=data.get("speaker_name"),
-            temporal_entities=data.get("temporal_entities", []),
-            location_entities=data.get("location_entities", []),
-            created_at=datetime.fromisoformat(data["created_at"])
-            if "created_at" in data
+            id=data['id'],
+            session_id=data['session_id'],
+            title=data['title'],
+            description=data['description'],
+            event_type=TimelineEventType(data.get('event_type', 'other')),
+            order=data.get('order', 0),
+            timestamp=data.get('timestamp', 0.0),
+            transcription_chunk_id=data.get('transcription_chunk_id'),
+            player_id=data.get('player_id'),
+            speaker_name=data.get('speaker_name'),
+            temporal_entities=data.get('temporal_entities', []),
+            location_entities=data.get('location_entities', []),
+            created_at=datetime.fromisoformat(data['created_at'])
+            if 'created_at' in data
             else now_utc(),
         )
 
@@ -297,31 +284,23 @@ class Group:
     id: UUID = field(default_factory=uuid4)
     max_size: int = 6
     # Spieler werden per ID gehalten
-    players: Dict[UUID, Player] = field(default_factory=dict)
+    players: dict[UUID, Player] = field(default_factory=dict)
 
-    # Views 
+    # Views
 
-    def active(self) -> Dict[UUID, Player]:
+    def active(self) -> dict[UUID, Player]:
         """Nur aktive Spieler."""
-        return {
-            pid: p
-            for pid, p in self.players.items()
-            if p.status == PlayerStatus.active
-        }
+        return {pid: p for pid, p in self.players.items() if p.status == PlayerStatus.active}
 
-    def inactive(self) -> Dict[UUID, Player]:
+    def inactive(self) -> dict[UUID, Player]:
         """Nur inaktive Spieler."""
-        return {
-            pid: p
-            for pid, p in self.players.items()
-            if p.status == PlayerStatus.inactive
-        }
+        return {pid: p for pid, p in self.players.items() if p.status == PlayerStatus.inactive}
 
     def size(self) -> int:
         """Aktuelle Gruppengröße = nur aktive Spieler."""
         return len(self.active())
 
-    def leader_id(self, is_inactive_ok = False) -> Optional[UUID]:
+    def leader_id(self, is_inactive_ok=False) -> UUID | None:
         """Aktiver Leader, falls vorhanden."""
         leader_pid: UUID = None
         for pid, p in self.active().items():  # zuerst versuchen einen aktiven leader zu finden
@@ -336,10 +315,7 @@ class Group:
     def has_active_name(self, name: str) -> bool:
         """Eindeutiger Name unter aktiven Spielern."""
         n = name.strip().lower()
-        return any(
-            p.name.strip().lower() == n
-            for p in self.active().values()
-        )
+        return any(p.name.strip().lower() == n for p in self.active().values())
 
     # Mutations
 
@@ -351,26 +327,17 @@ class Group:
         - eindeutige Namen unter aktiven Spielern
         """
         if self.size() >= self.max_size:
-            raise ValueError(f"Group size {self.size()} >= {self.max_size}")
+            raise ValueError(f'Group size {self.size()} >= {self.max_size}')
         if role is Role.leader and self.leader_id() is not None:
             raise ValueError("Group role 'leader' already exists")
         if self.has_active_name(name):
             raise ValueError(f"Player name '{name}' already exists")
 
-        player = Player(
-            id=uuid4(),
-            name=name,
-            role=role,
-            status=PlayerStatus.active,
-        )
+        player = Player(id=uuid4(), name=name, role=role, status=PlayerStatus.active)
         self.players[player.id] = player
         return player
 
-    def deactivate(
-        self,
-        pid: UUID,
-        status: PlayerStatus = PlayerStatus.inactive,
-    ) -> None:
+    def deactivate(self, pid: UUID, status: PlayerStatus = PlayerStatus.inactive) -> None:
         """
         Spieler "soft" deaktivieren:
         - Status anpassen
@@ -410,7 +377,7 @@ class Group:
     def get_player(self, pid: UUID) -> Player:
         p = self.players.get(pid)
         if not p:
-            raise KeyError("Player not found.")
+            raise KeyError('Player not found.')
         return p
 
     def remove_player(self, pid: UUID) -> None:

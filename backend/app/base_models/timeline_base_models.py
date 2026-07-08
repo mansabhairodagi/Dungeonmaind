@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+
 from pydantic import BaseModel, Field
 
 
@@ -11,9 +11,9 @@ class TimelineEventOut(BaseModel):
     event_type: str
     order: int
     timestamp: float = 0.0
-    transcription_chunk_id: Optional[str] = None
-    player_id: Optional[str] = None
-    speaker_name: Optional[str] = None
+    transcription_chunk_id: str | None = None
+    player_id: str | None = None
+    speaker_name: str | None = None
     temporal_entities: list[str] = Field(default_factory=list)
     location_entities: list[str] = Field(default_factory=list)
     created_at: datetime
@@ -26,7 +26,7 @@ class TimelineEventListResponse(BaseModel):
 
 
 class TimelineGenerateRequest(BaseModel):
-    session_id: str = "default"
+    session_id: str = 'default'
 
 
 class TimelineGenerateResponse(BaseModel):
@@ -37,4 +37,4 @@ class TimelineGenerateResponse(BaseModel):
 
 class TimelineDeleteResponse(BaseModel):
     deleted: bool
-    event_id: Optional[str] = None
+    event_id: str | None = None

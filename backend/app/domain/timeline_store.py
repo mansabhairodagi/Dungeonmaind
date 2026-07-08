@@ -1,6 +1,7 @@
 import asyncio
-from uuid import uuid4
 from collections import defaultdict
+from uuid import uuid4
+
 from app.domain.models import TimelineEvent
 
 
@@ -17,7 +18,7 @@ class TimelineStore:
         async with self._lock:
             if not event.id:
                 event_id = self._generate_id()
-                object.__setattr__(event, "id", event_id)
+                object.__setattr__(event, 'id', event_id)
             else:
                 event_id = event.id
             self._events[event_id] = event
@@ -31,7 +32,7 @@ class TimelineStore:
             for event in events:
                 if not event.id:
                     event_id = self._generate_id()
-                    object.__setattr__(event, "id", event_id)
+                    object.__setattr__(event, 'id', event_id)
                 else:
                     event_id = event.id
                 self._events[event_id] = event
@@ -43,7 +44,7 @@ class TimelineStore:
         async with self._lock:
             return self._events.get(event_id)
 
-    async def get_session_events(self, session_id: str = "default") -> list[TimelineEvent]:
+    async def get_session_events(self, session_id: str = 'default') -> list[TimelineEvent]:
         async with self._lock:
             event_ids = list(self._by_session.get(session_id, []))
             events = [self._events[eid] for eid in event_ids if eid in self._events]
@@ -60,7 +61,7 @@ class TimelineStore:
                 session_events.remove(event_id)
             return True
 
-    async def clear_session(self, session_id: str = "default") -> int:
+    async def clear_session(self, session_id: str = 'default') -> int:
         async with self._lock:
             event_ids = list(self._by_session.get(session_id, []))
             count = 0

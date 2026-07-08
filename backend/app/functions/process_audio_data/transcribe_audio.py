@@ -7,36 +7,42 @@
 #                   pip uninstall torch torchaudio
 #                   pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu128
 
-import torch
 import lightning_fabric.utilities.cloud_io
+import torch
 
 # Patch lightning_fabric to always use weights_only=False
 _original_pl_load = lightning_fabric.utilities.cloud_io._load
+
+
 def _patched_pl_load(path_or_url, map_location=None, weights_only=None):
     return _original_pl_load(path_or_url, map_location, weights_only=False)
+
+
 lightning_fabric.utilities.cloud_io._load = _patched_pl_load
 
-import whisperx
-import tempfile
 import os
-from pydub import AudioSegment
+import tempfile
 from io import BytesIO
 
-from app.functions.embedding.embedding_model import embedd_transcriptions
+import whisperx
+from pydub import AudioSegment
+from whisperx.diarize import DiarizationPipeline
+
+from app.core.config import settings
 from app.domain.store import store
 from app.domain.timeline_store import timeline_store
-from app.core.config import settings
-from whisperx.diarize import DiarizationPipeline
+from app.functions.embedding.embedding_model import embedd_transcriptions
 from app.functions.llm.event_extractor import extract_events_from_transcriptions
+
 
 def load_transcription_model():
     new_model = whisperx.load_model(
         settings.transcription_model,
         device,
         compute_type=compute_type,
-        download_root=model_dir  # If None, uses default HF cache
+        download_root=model_dir,  # If None, uses default HF cache
     )
-    if device == "cuda":
+    if device == 'cuda':
         torch.cuda.empty_cache()
     return new_model
 
@@ -48,35 +54,34 @@ def reload_transcription_model():
 
 def load_diarize_model():
     if not settings.hf_token:
-        print("Warning: HF_TOKEN is not set. Speaker diarization disabled.")
+        print('Warning: HF_TOKEN is not set. Speaker diarization disabled.')
         return None
 
     try:
-        new_model = DiarizationPipeline(
-            use_auth_token=settings.hf_token,
-            device=device
-        )
+        new_model = DiarizationPipeline(use_auth_token=settings.hf_token, device=device)
         return new_model
     except Exception as e:
-        print(f"Warning: Failed to load diarization model ({e}). Speaker diarization disabled.")
-        print("Visit https://hf.co/pyannote/speaker-diarization-3.1 and accept terms to enable it.")
+        print(f'Warning: Failed to load diarization model ({e}). Speaker diarization disabled.')
+        print('Visit https://hf.co/pyannote/speaker-diarization-3.1 and accept terms to enable it.')
         return None
 
 
-model_dir = os.getenv("WHISPERX_MODELS_DIR", None)
-print("WHISPERX_MODELS_DIR:", os.getenv("WHISPERX_MODELS_DIR"))
+model_dir = os.getenv('WHISPERX_MODELS_DIR', None)
+print('WHISPERX_MODELS_DIR:', os.getenv('WHISPERX_MODELS_DIR'))
 
 if model_dir is None:
     # Dev/local environment: auto-detect device
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    compute_type = "float16" if device == "cuda" else "int8"
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    compute_type = 'float16' if device == 'cuda' else 'int8'
 else:
     # Docker: CPU-only setup
-    device = "cpu"
-    compute_type = "int8"
-    print("Warning: With Docker currently only CPU support is possible")
+    device = 'cpu'
+    compute_type = 'int8'
+    print('Warning: With Docker currently only CPU support is possible')
 
-print(f"Loading transcription and alignment models on device: {device} with compute type: {compute_type}")
+print(
+    f'Loading transcription and alignment models on device: {device} with compute type: {compute_type}'
+)
 
 # Use a dictionary to cache alignment models by language to avoid reloading
 alignment_models_cache = {}
@@ -85,20 +90,14 @@ alignment_models_cache = {}
 transcription_model = load_transcription_model()
 diarize_model = load_diarize_model()
 if diarize_model is not None:
-    print("Models loaded successfully.")
+    print('Models loaded successfully.')
 else:
-    print("Transcription model loaded (diarization disabled).")
+    print('Transcription model loaded (diarization disabled).')
 
 
 async def transcribe_audio(audio_bytes: bytes, content_type: str, batch_size=16):
     # Robust content type parsing and saving bytes to a temporary file
-    file_extension_map = {
-        'ogg': 'ogg',
-        'webm': 'webm',
-        'wav': 'wav',
-        'mpeg': 'mp3',
-        'mp4': 'mp4'
-    }
+    file_extension_map = {'ogg': 'ogg', 'webm': 'webm', 'wav': 'wav', 'mpeg': 'mp3', 'mp4': 'mp4'}
     fileExtension = 'webm'
     for key in file_extension_map:
         if key in content_type:
@@ -124,20 +123,20 @@ async def transcribe_audio(audio_bytes: bytes, content_type: str, batch_size=16)
     combined_audio += session_audio
     # export
     output_buffer = BytesIO()
-    combined_audio.export(output_buffer, format="wav")
+    combined_audio.export(output_buffer, format='wav')
     output_buffer.seek(0)
 
-    print("Combining player voice notes with session audio...")
+    print('Combining player voice notes with session audio...')
     combined_audio_buffer = output_buffer
     intro_duration_s = intro_duration_ms / 1000  # Umwandeln in Sekunden
 
-    speaker_map = {f"SPEAKER_{i:02d}": name for i, name in enumerate(speaker_order)}
+    speaker_map = {f'SPEAKER_{i:02d}': name for i, name in enumerate(speaker_order)}
     print(speaker_map)
 
-    print("Loading audio...")
+    print('Loading audio...')
 
     # 2. Save bytes to a temporary file (required by whisperx.load_audio)
-    with tempfile.NamedTemporaryFile(suffix=f".{fileExtension}", delete=False) as tempAudio:
+    with tempfile.NamedTemporaryFile(suffix=f'.{fileExtension}', delete=False) as tempAudio:
         tempAudio.write(combined_audio_buffer.read())
         tempAudio.flush()
         tempAudioPath = tempAudio.name
@@ -151,37 +150,43 @@ async def transcribe_audio(audio_bytes: bytes, content_type: str, batch_size=16)
         # print("Transcription segments:", result["segments"])
 
         # 4. Align whisper output to improve the word-level timestamps in transcription.
-        language_code = result["language"]
+        language_code = result['language']
         if language_code not in alignment_models_cache:
-            print(f"Loading alignment model for language: {language_code}...")
+            print(f'Loading alignment model for language: {language_code}...')
             alignment_model, metadata = whisperx.load_align_model(
-                language_code=language_code,
-                device=device
+                language_code=language_code, device=device
             )
             alignment_models_cache[language_code] = (alignment_model, metadata)
         else:
-            print(f"Using cached alignment model for language: {language_code}.")
+            print(f'Using cached alignment model for language: {language_code}.')
             alignment_model, metadata = alignment_models_cache[language_code]
 
         # 5. Perform alignment
-        print("Aligning...")
-        resultA = whisperx.align(result["segments"], alignment_model, metadata, audio, device,
-                                 return_char_alignments=False)
+        print('Aligning...')
+        resultA = whisperx.align(
+            result['segments'],
+            alignment_model,
+            metadata,
+            audio,
+            device,
+            return_char_alignments=False,
+        )
         # print("Aligned segments:", resultA["segments"])
 
-
         # 6. Assign speaker labels
-        print("Assigning speakers...")
+        print('Assigning speakers...')
 
         # Min players is guaranteed to be available based on the user's requirement.
         min_players = max(len(speaker_order), 1)
         max_players = max(min_players + 2, store.group.max_size)
-        print(f"min players: {min_players}")
-        print(f"max players: {max_players}")
+        print(f'min players: {min_players}')
+        print(f'max players: {max_players}')
 
         # Perform diarization with constraints (skip if model unavailable)
         if diarize_model is not None:
-            diarizeSegments = diarize_model(audio, min_speakers=min_players, max_speakers=max_players)
+            diarizeSegments = diarize_model(
+                audio, min_speakers=min_players, max_speakers=max_players
+            )
             resultB = whisperx.assign_word_speakers(diarizeSegments, resultA)
         else:
             resultB = resultA
@@ -190,49 +195,40 @@ async def transcribe_audio(audio_bytes: bytes, content_type: str, batch_size=16)
 
         # The final segments are the diarized result
 
-        for segment in resultB.get("segments", []):
-            original_speaker = segment.get("speaker", "unknown")
+        for segment in resultB.get('segments', []):
+            original_speaker = segment.get('speaker', 'unknown')
             print(original_speaker)
-            player_name = speaker_map.get(original_speaker, "unknown")
-            segment["player_name"] = player_name
-            print("playername:", player_name)
-            segment["speaker"] = player_name
+            player_name = speaker_map.get(original_speaker, 'unknown')
+            segment['player_name'] = player_name
+            print('playername:', player_name)
+            segment['speaker'] = player_name
 
         # print results
-        for seg in resultB.get("segments", []):
-            print(
-                f"[{seg['start']:.2f}s – {seg['end']:.2f}s] "
-                f"{seg['speaker']}: {seg['text']}"
-            )
+        for seg in resultB.get('segments', []):
+            print(f'[{seg["start"]:.2f}s - {seg["end"]:.2f}s] {seg["speaker"]}: {seg["text"]}')
 
         # remove voice notes
-        filtered_segments = [seg for seg in resultB["segments"] if seg["start"] > intro_duration_s]
+        filtered_segments = [seg for seg in resultB['segments'] if seg['start'] > intro_duration_s]
 
         # 7. Embed the resulting text
         texts = []
         speakers = []
 
         for seg in filtered_segments:
-            text = seg.get("text", "").strip()
+            text = seg.get('text', '').strip()
             if not text:
                 continue
 
             texts.append(text)
-            speakers.append(seg.get("speaker", "unknown"))
+            speakers.append(seg.get('speaker', 'unknown'))
 
         if texts:
-            embedd_transcriptions(
-                embedding_text=texts,
-                speakers=speakers
-            )
+            embedd_transcriptions(embedding_text=texts, speakers=speakers)
 
-            events = extract_events_from_transcriptions(
-                texts=texts,
-                speakers=speakers,
-            )
+            events = extract_events_from_transcriptions(texts=texts, speakers=speakers)
             if events:
                 await timeline_store.add_events(events)
-                print(f"Generated {len(events)} timeline events from transcription.")
+                print(f'Generated {len(events)} timeline events from transcription.')
 
         return filtered_segments
 
@@ -240,10 +236,9 @@ async def transcribe_audio(audio_bytes: bytes, content_type: str, batch_size=16)
         # return final_segments
 
     except Exception as e:
-        print(f"An error occurred during transcription: {e}")
+        print(f'An error occurred during transcription: {e}')
         return None
 
     finally:
         # Clean up the temporary file
         os.remove(tempAudioPath)
-

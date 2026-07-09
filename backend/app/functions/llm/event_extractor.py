@@ -1,3 +1,5 @@
+"""Extract timeline events from session transcriptions using an LLM."""
+
 import json
 from typing import Any
 from urllib.error import HTTPError, URLError
@@ -28,6 +30,14 @@ EVENT_EXTRACTION_PROMPT = (
 
 
 def _safe_json_from_llm_response(content: str) -> list[dict[str, Any]]:
+    """Safely parse JSON from an LLM response string.
+
+    Args:
+        content: The raw LLM response string.
+
+    Returns:
+        A list of dicts parsed from the JSON, or empty list on failure.
+    """
     content = content.strip()
     if not content:
         return []
@@ -55,12 +65,28 @@ def _safe_json_from_llm_response(content: str) -> list[dict[str, Any]]:
 
 
 def _sanitize_event_text(value: Any) -> str:
+    """Sanitize and normalize event text.
+
+    Args:
+        value: Raw text value.
+
+    Returns:
+        Cleaned, single-line string or empty string if not a string.
+    """
     if not isinstance(value, str):
         return ''
     return ' '.join(value.strip().split())
 
 
 def _parse_event_type(raw: Any) -> TimelineEventType:
+    """Parse a raw event type string into a TimelineEventType enum.
+
+    Args:
+        raw: Raw event type value.
+
+    Returns:
+        The matching TimelineEventType, or TimelineEventType.other if unknown.
+    """
     if not isinstance(raw, str):
         return TimelineEventType.other
     normalized = raw.strip().lower()
@@ -78,6 +104,19 @@ def extract_events_from_text(
     speaker_name: str | None = None,
     player_id: str | None = None,
 ) -> list[TimelineEvent]:
+    """Extract timeline events from a single text chunk using an LLM.
+
+    Args:
+        text: The transcription text to analyze.
+        session_id: Session identifier (default 'default').
+        chunk_index: Index of this chunk for ordering.
+        chunk_start_time: Start time of this chunk in seconds.
+        speaker_name: Name of the speaker if known.
+        player_id: Player ID associated with the text.
+
+    Returns:
+        List of extracted TimelineEvent objects.
+    """
     entities = _extract_entities_with_local_llm(text)
 
     if not text.strip():
@@ -151,6 +190,16 @@ def extract_events_from_text(
 def extract_events_from_transcriptions(
     texts: list[str], speakers: list[str] | None = None, session_id: str = 'default'
 ) -> list[TimelineEvent]:
+    """Extract timeline events from multiple transcription texts.
+
+    Args:
+        texts: List of transcription text chunks.
+        speakers: Optional list of speaker names corresponding to texts.
+        session_id: Session identifier (default 'default').
+
+    Returns:
+        List of extracted TimelineEvent objects.
+    """
     all_events: list[TimelineEvent] = []
     for i, text in enumerate(texts):
         if not text.strip():

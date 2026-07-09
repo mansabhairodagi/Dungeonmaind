@@ -1,3 +1,5 @@
+"""REST API router for LLM querying with rulebook and transcription context."""
+
 import os
 
 from fastapi import APIRouter, HTTPException, status
@@ -19,6 +21,14 @@ router = APIRouter()
 
 
 def _is_entity_listing_request(text: str) -> bool:
+    """Check if the user is asking about entities (temporal or location).
+
+    Args:
+        text: The user's input text.
+
+    Returns:
+        True if the request appears to be about entities.
+    """
     normalized = text.casefold()
     asks_for_entities = 'entity' in normalized or 'entities' in normalized
     asks_for_time_or_place = any(
@@ -30,6 +40,17 @@ def _is_entity_listing_request(text: str) -> bool:
 
 @router.post('/run', response_class=StreamingResponse)
 async def run_llm(req: LLMRequest):
+    """Query the LLM with a player's input, returning a streaming response.
+
+    Retrieves relevant context from the rulebook and transcriptions,
+    builds a system prompt, and streams the LLM response.
+
+    Args:
+        req: LLMRequest with player_id, input_string, and use_rulebook flag.
+
+    Returns:
+        StreamingResponse yielding LLM output chunks.
+    """
     # 1) Spieler existiert?
     try:
         print(f'trying to get player ID + {req.player_id}')
@@ -85,6 +106,15 @@ async def run_llm(req: LLMRequest):
 
     # 4) Generator zum Streamen
     async def event_generator(system_prompt: dict, chat_history: list[dict]):
+        """Async generator that streams LLM response chunks.
+
+        Args:
+            system_prompt: The system prompt dict for the LLM.
+            chat_history: The relevant chat history context.
+
+        Yields:
+            Text chunks from the LLM response.
+        """
         # yield json.dumps({"type": "metadata", "markdown_texts": markdown_texts}) + "\n"
 
         llm_resp = ''

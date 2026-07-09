@@ -1,3 +1,5 @@
+"""Functions for importing game session data from saved files."""
+
 import json
 import os
 import shutil
@@ -13,9 +15,16 @@ from app.domain.store import store
 
 
 def load_groups_from_json(file_path: str) -> Player:
-    """
-    Loads group and player data from a JSON file into the store.
-    If the file does not exist, does nothing.
+    """Load group and player data from a JSON file into the store.
+
+    Args:
+        file_path: Path to the JSON file.
+
+    Returns:
+        The leader Player instance, or None if no leader found.
+
+    Raises:
+        HTTPException: If the file is missing or data is invalid.
     """
 
     path = Path(file_path)
@@ -81,8 +90,10 @@ def load_groups_from_json(file_path: str) -> Player:
 
 
 def load_settings_from_json(file_path: str) -> None:
-    """
-    Reads settings properties from a JSON file and updates the settings-object.
+    """Read settings from a JSON file and update the global settings object.
+
+    Args:
+        file_path: Path to the settings JSON file.
     """
     with open(file_path, encoding='utf-8') as f:
         data = json.load(f)
@@ -100,13 +111,14 @@ def load_settings_from_json(file_path: str) -> None:
 
 
 def replace_chroma_db(saved_sessions_path: str, data_path: str) -> None:
-    """
-    Replace the current chroma_db in data_path with the one from the saved session.
+    """Replace the current ChromaDB with the one from a saved session.
+
+    Copies the saved ChromaDB into a timestamped tmp folder and updates
+    the settings path.
 
     Args:
-        saved_sessions_path: Path to the SavedSessions folder.
-        session_name: Name of the session folder inside SavedSessions.
-        data_path: Path to the data folder where the active chroma_db lives.
+        saved_sessions_path: Path to the SavedSessions folder containing chroma_db.
+        data_path: Path to the data folder where the active ChromaDB lives.
     """
     session_db_path = os.path.join(saved_sessions_path, 'chroma_db')
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -138,8 +150,7 @@ def replace_chroma_db(saved_sessions_path: str, data_path: str) -> None:
 
 # Not used at the moment
 def read_chat_history(file_path: str) -> list[dict[str, str]]:
-    """
-    Reads a chat history TXT file and returns a list of messages.
+    """Read a chat history TXT file and return a list of messages.
 
     Args:
         file_path: Path to the chat TXT file.

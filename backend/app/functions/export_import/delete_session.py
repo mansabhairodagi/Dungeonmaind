@@ -1,3 +1,5 @@
+"""Functions for deleting saved session folders."""
+
 import os
 import shutil
 
@@ -9,6 +11,15 @@ BASE_DIR = os.path.join(settings.backend_root_path, 'data', 'SavedSessions')
 
 
 def delete_folder(folder: str) -> None:
+    """Delete a folder from SavedSessions directory.
+
+    Args:
+        folder: Name of the folder to delete.
+
+    Raises:
+        HTTPException 404: If the folder does not exist.
+        HTTPException 400: If the path is not a directory.
+    """
     folder_path = os.path.join(BASE_DIR, folder)
 
     if not os.path.exists(folder_path):

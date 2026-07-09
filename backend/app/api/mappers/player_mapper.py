@@ -1,3 +1,5 @@
+"""Mapper for converting domain Player models to PlayerOut schemas."""
+
 from fastapi import Request
 
 from app.base_models.schemas import Abilities, Hp, PlayerOut
@@ -5,9 +7,14 @@ from app.domain.models import Player as DomainPlayer
 
 
 def player_to_out(player: DomainPlayer, request: Request | None = None) -> PlayerOut:
-    """
-    Map Domain-Player -> PlayerOut.
-    Assumes Role/PlayerStatus enums are shared between domain + schemas.
+    """Map a domain Player model to a PlayerOut Pydantic schema.
+
+    Args:
+        player: The domain Player instance.
+        request: Optional HTTP request for generating the backend URL.
+
+    Returns:
+        A PlayerOut schema instance.
     """
     backend_url = str(request.base_url).rstrip('/') if request is not None else ''
 

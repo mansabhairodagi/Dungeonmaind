@@ -1,4 +1,19 @@
+"""Build the system prompt for the LLM with retrieved context."""
+
+
 def get_system_prompt(context):
+    """Build the system prompt dict for the LLM.
+
+    Constructs a system message that instructs the LLM about its role as
+    a D&D assistant and how to use the provided context (rulebook and
+    transcription snippets).
+
+    Args:
+        context: The retrieved context string (rulebook + transcription).
+
+    Returns:
+        A dict with 'role': 'system' and the prompt as 'content'.
+    """
     system_prompt = {
         'role': 'system',
         'content': (

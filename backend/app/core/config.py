@@ -1,3 +1,5 @@
+"""Application configuration loaded from environment variables and .env file."""
+
 import os
 
 from pydantic import Field
@@ -5,6 +7,23 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    """Application settings loaded via Pydantic from environment variables.
+
+    Attributes:
+        app_name: Name of the application.
+        debug: Enable debug logging.
+        host: Bind address for the server.
+        port: Listening port for the server.
+        hf_token: Hugging Face access token for diarization.
+        llm_model: The default LLM model used by the backend.
+        ollama_url: URL for local Ollama LLM server.
+        transcription_model: Transcription model (base or medium).
+        embedding_model: Embedding model name.
+        embedding_top_k: Number of top_k embeddings (2-8).
+        entity_llm_fallback: Enable local LLM fallback for entity extraction.
+        backend_root_path: Root directory of the backend.
+    """
+
     model_config = SettingsConfigDict(env_file='.env', case_sensitive=False)
     app_name: str = Field(
         default='Awesome API', validation_alias='APP_NAME', description='Name of the application'
@@ -68,11 +87,19 @@ class Settings(BaseSettings):
 
     @property
     def chroma_db_path(self) -> str:
-        # If a custom path was set, return it; otherwise return default
+        """Return the ChromaDB path.
+
+        If a custom path was set via the setter, returns it;
+        otherwise returns the default path under data/chroma_db.
+
+        Returns:
+            The ChromaDB directory path.
+        """
         return self._chroma_db_path or os.path.join(self.backend_root_path, 'data', 'chroma_db')
 
     @chroma_db_path.setter
     def chroma_db_path(self, value: str):
+        """Set a custom ChromaDB path."""
         self._chroma_db_path = value
 
 

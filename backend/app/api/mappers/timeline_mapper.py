@@ -1,8 +1,18 @@
+"""Mapper for converting domain TimelineEvent models to TimelineEventOut schemas."""
+
 from app.base_models.timeline_base_models import TimelineEventOut
 from app.domain.models import TimelineEvent as DomainTimelineEvent
 
 
 def timeline_event_to_out(event: DomainTimelineEvent) -> TimelineEventOut:
+    """Map a domain TimelineEvent to a TimelineEventOut Pydantic schema.
+
+    Args:
+        event: The domain TimelineEvent instance.
+
+    Returns:
+        A TimelineEventOut schema instance.
+    """
     return TimelineEventOut(
         id=event.id,
         session_id=event.session_id,

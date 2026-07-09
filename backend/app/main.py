@@ -1,3 +1,9 @@
+"""Application entry point for the Dungeonmaind backend.
+
+Creates and configures the FastAPI application, registers all routers,
+and handles startup/shutdown lifecycle for ChromaDB embedding.
+"""
+
 import asyncio
 import sys
 
@@ -61,6 +67,15 @@ LAN_REGEX = (
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Application lifespan context manager.
+
+    On startup, deletes old ChromaDB temporary folders and re-embeds the
+    rulebook if no rulebook embeddings exist. On shutdown, cleans up
+    temporary ChromaDB folders.
+
+    Args:
+        app: The FastAPI application instance.
+    """
     # Startup logic
     logging.info('Server starting: deleting old ChromaDB and re-embedding rulebook...')
     # Check if this deletes everything. Should just delete the tmp folders and for the main db just delete transcriptions
@@ -88,6 +103,13 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
+    """Create and configure the FastAPI application.
+
+    Sets up logging, CORS middleware, and registers all API routers.
+
+    Returns:
+        The configured FastAPI application instance.
+    """
 
     # Configure root logger
     logging.basicConfig(

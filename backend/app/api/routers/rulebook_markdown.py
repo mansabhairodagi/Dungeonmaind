@@ -1,3 +1,5 @@
+"""REST API router for browsing and searching the rulebook markdown files."""
+
 import os
 
 from fastapi import APIRouter, HTTPException, status
@@ -14,6 +16,11 @@ BASE_DIR = os.path.join(settings.backend_root_path, 'data', 'markdowns')
 
 @router.get('/folders', response_model=FolderStructure)
 async def get_folders():
+    """List the folder structure of the rulebook markdown directory.
+
+    Returns:
+        FolderStructure mapping relative paths to their subfolders and .md files.
+    """
     folder_dict = {}
     for root, dirs, files in os.walk(BASE_DIR):
         rel_root = os.path.relpath(root, BASE_DIR)
@@ -28,6 +35,17 @@ async def get_folders():
 
 @router.get('/file', response_model=FileContentResponse)
 async def get_file(path: str):
+    """Get the raw content of a specific markdown file.
+
+    Args:
+        path: Relative path to the markdown file.
+
+    Returns:
+        FileContentResponse with the file content.
+
+    Raises:
+        HTTPException 404: If the file is not found.
+    """
     abs_path = os.path.join(BASE_DIR, path)
     if not os.path.isfile(abs_path):
         raise HTTPException(status_code=404, detail='Markdown file not found')
@@ -37,6 +55,17 @@ async def get_file(path: str):
 
 @router.post('/search', response_model=EmbeddResponse)
 async def search_files(req: EmbeddingSearch):
+    """Search the rulebook using embedding-based similarity search.
+
+    Args:
+        req: EmbeddingSearch with the search query string.
+
+    Returns:
+        EmbeddResponse with matching markdown texts.
+
+    Raises:
+        HTTPException 404: If no matching markdowns are found.
+    """
     retrieved_docs = embedding_search(req.input_string, True)
     md_paths = [doc.metadata.get('path') for doc in retrieved_docs]
     markdown_texts = [read_markdown_file(path) for path in md_paths]

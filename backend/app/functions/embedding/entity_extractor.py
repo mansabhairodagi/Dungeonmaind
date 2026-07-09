@@ -1,3 +1,5 @@
+"""Entity extraction (temporal and location) from D&D session text using regex and LLM."""
+
 import json
 import re
 from dataclasses import dataclass
@@ -8,6 +10,13 @@ from urllib.request import Request, urlopen
 
 @dataclass(frozen=True)
 class ExtractedEntities:
+    """Container for extracted temporal and location entities.
+
+    Attributes:
+        temporal_entities: List of time-related entity strings.
+        location_entities: List of location entity strings.
+    """
+
     temporal_entities: list[str]
     location_entities: list[str]
 
@@ -544,6 +553,14 @@ TRAILING_VERBS = {
 
 
 def _looks_like_described_place(value: str) -> bool:
+    """Check if a value looks like a described place with a place noun.
+
+    Args:
+        value: The candidate string.
+
+    Returns:
+        True if it appears to be a described place.
+    """
     words = value.casefold().split()
     if not words:
         return False
@@ -561,10 +578,28 @@ def _looks_like_described_place(value: str) -> bool:
 
 
 def _is_capitalized(value: str) -> bool:
+    """Check if a string starts with an uppercase letter.
+
+    Args:
+        value: The string to check.
+
+    Returns:
+        True if the first character is uppercase.
+    """
     return bool(value) and value[0].isupper()
 
 
 def _candidate_score(value: str) -> int:
+    """Score a location candidate for ranking.
+
+    Higher scores indicate more likely valid location entities.
+
+    Args:
+        value: The candidate string.
+
+    Returns:
+        Integer score.
+    """
     words = value.split()
     lowered = [word.casefold().strip('.,;:!?') for word in words]
     score = len(words)
@@ -586,6 +621,14 @@ def _candidate_score(value: str) -> int:
 
 
 def _clean_location_candidate(value: str) -> str:
+    """Remove leading prepositions/verbs and trailing clause words from a candidate.
+
+    Args:
+        value: The raw candidate string.
+
+    Returns:
+        Cleaned candidate string.
+    """
     words = WORD_PATTERN.findall(value)
     while words and words[0].casefold() in LOCATION_PREPOSITIONS + LOCATION_VERBS:
         words.pop(0)
@@ -597,6 +640,14 @@ def _clean_location_candidate(value: str) -> str:
 
 
 def _find_place_noun_candidates(text: str) -> list[str]:
+    """Find candidate location phrases based on place nouns.
+
+    Args:
+        text: The input text.
+
+    Returns:
+        List of candidate location strings.
+    """
     candidates = []
     descriptor_pattern = '|'.join(sorted(LOCATION_DESCRIPTORS, key=len, reverse=True))
     pattern = re.compile(
@@ -608,6 +659,14 @@ def _find_place_noun_candidates(text: str) -> list[str]:
 
 
 def _find_single_named_locations_after_triggers(text: str) -> list[str]:
+    """Find single capitalized location names after location triggers.
+
+    Args:
+        text: The input text.
+
+    Returns:
+        List of candidate location strings.
+    """
     candidates = []
     trigger_pattern = re.compile(
         rf"\b(?:{_LOCATION_PREPOSITION_PATTERN}|{_LOCATION_VERB_PATTERN})\s+([A-Z][A-Za-z'-]+)\b"
@@ -620,6 +679,14 @@ def _find_single_named_locations_after_triggers(text: str) -> list[str]:
 
 
 def _remove_nested_locations(values: list[str]) -> list[str]:
+    """Remove location candidates that are substrings of larger candidates.
+
+    Args:
+        values: List of candidate location strings.
+
+    Returns:
+        Filtered list without nested duplicates.
+    """
     kept = []
     for value in sorted(values, key=lambda item: (_candidate_score(item), len(item)), reverse=True):
         current = value.casefold()
@@ -643,6 +710,14 @@ def _remove_nested_locations(values: list[str]) -> list[str]:
 
 
 def _filter_location_candidates(values: list[str]) -> list[str]:
+    """Filter location candidates by removing stopwords and invalid entries.
+
+    Args:
+        values: List of candidate location strings.
+
+    Returns:
+        Filtered list of valid location candidates.
+    """
     filtered = []
     for value in values:
         candidate = _clean_location_candidate(value)
@@ -678,6 +753,14 @@ def _filter_location_candidates(values: list[str]) -> list[str]:
 
 
 def _dedupe_preserving_order(values: list[str]) -> list[str]:
+    """Remove duplicate strings while preserving original order.
+
+    Args:
+        values: List of strings.
+
+    Returns:
+        Deduplicated list preserving first occurrence order.
+    """
     seen = set()
     result = []
     for value in values:
@@ -693,6 +776,17 @@ def _dedupe_preserving_order(values: list[str]) -> list[str]:
 
 
 def _merge_entities(primary: list[str], secondary: list[str]) -> list[str]:
+    """Merge two entity lists, preserving order and avoiding duplicates.
+
+    Primary list takes precedence; secondary items are appended if not already present.
+
+    Args:
+        primary: Primary list of entity strings.
+        secondary: Secondary list of entity strings.
+
+    Returns:
+        Merged list of entity strings.
+    """
     merged = list(primary)
     seen = {value.casefold() for value in merged}
     for value in secondary:
@@ -708,6 +802,14 @@ def _merge_entities(primary: list[str], secondary: list[str]) -> list[str]:
 
 
 def _safe_json_from_llm_response(content: str) -> dict[str, Any]:
+    """Safely parse JSON from an LLM response string.
+
+    Args:
+        content: Raw LLM response content.
+
+    Returns:
+        Parsed dict or empty dict on failure.
+    """
     content = content.strip()
     if not content:
         return {}
@@ -731,12 +833,30 @@ def _safe_json_from_llm_response(content: str) -> dict[str, Any]:
 
 
 def _coerce_entity_list(value: Any) -> list[str]:
+    """Coerce a value to a list of entity strings.
+
+    Args:
+        value: The value to coerce.
+
+    Returns:
+        List of non-empty stripped strings.
+    """
     if not isinstance(value, list):
         return []
     return [' '.join(str(item).strip().split()) for item in value if str(item).strip()]
 
 
 def _strip_llm_description(value: str) -> str:
+    """Strip descriptions and extra text from an LLM entity value.
+
+    Removes content after colon or dash separators.
+
+    Args:
+        value: Raw LLM entity text.
+
+    Returns:
+        Cleaned entity text.
+    """
     cleaned = ' '.join(str(value).strip().split())
     if ':' in cleaned:
         cleaned = cleaned.split(':', 1)[0].strip()
@@ -746,6 +866,15 @@ def _strip_llm_description(value: str) -> str:
 
 
 def _exact_text_span(value: str, text: str) -> str:
+    """Find the exact text span of a value in the original text.
+
+    Args:
+        value: The value to search for.
+        text: The original text.
+
+    Returns:
+        The exact matching span from the original text, or empty string.
+    """
     if not value:
         return ''
     match = re.search(re.escape(value), text, re.IGNORECASE)
@@ -755,6 +884,15 @@ def _exact_text_span(value: str, text: str) -> str:
 
 
 def _is_valid_temporal_entity(value: str, text: str) -> str:
+    """Validate and extract a temporal entity from the original text.
+
+    Args:
+        value: The candidate temporal entity.
+        text: The original text.
+
+    Returns:
+        The validated exact text span, or empty string if invalid.
+    """
     cleaned = _strip_llm_description(value)
     exact = _exact_text_span(cleaned, text)
     if not exact:
@@ -767,6 +905,15 @@ def _is_valid_temporal_entity(value: str, text: str) -> str:
 
 
 def _is_valid_location_entity(value: str, text: str) -> str:
+    """Validate and extract a location entity from the original text.
+
+    Args:
+        value: The candidate location entity.
+        text: The original text.
+
+    Returns:
+        The validated exact text span, or empty string if invalid.
+    """
     cleaned = _strip_llm_description(value)
     exact = _exact_text_span(cleaned, text)
     if not exact:
@@ -783,6 +930,15 @@ def _is_valid_location_entity(value: str, text: str) -> str:
 
 
 def _sanitize_llm_entities(entities: ExtractedEntities, text: str) -> ExtractedEntities:
+    """Sanitize LLM-extracted entities by validating against the original text.
+
+    Args:
+        entities: The ExtractedEntities from the LLM.
+        text: The original text for span validation.
+
+    Returns:
+        Sanitized ExtractedEntities with validated text spans.
+    """
     temporal_entities = _dedupe_preserving_order(
         entity
         for entity in (
@@ -803,6 +959,15 @@ def _sanitize_llm_entities(entities: ExtractedEntities, text: str) -> ExtractedE
 
 
 def _extract_entities_with_local_llm(text: str, timeout_seconds: float = 25.0) -> ExtractedEntities:
+    """Extract entities from text using a local LLM via Ollama.
+
+    Args:
+        text: The text to extract entities from.
+        timeout_seconds: Timeout for the LLM request.
+
+    Returns:
+        ExtractedEntities with temporal and location entities.
+    """
     try:
         from app.core.config import settings
 
@@ -854,6 +1019,14 @@ def _extract_entities_with_local_llm(text: str, timeout_seconds: float = 25.0) -
 
 
 def _dedupe_spans_preserving_order(matches: list[tuple[int, int, str]]) -> list[str]:
+    """Deduplicate span matches preserving order, keeping the longest span for nested matches.
+
+    Args:
+        matches: List of (start, end, value) tuples.
+
+    Returns:
+        List of deduplicated values in occurrence order.
+    """
     sorted_matches = sorted(matches, key=lambda item: (item[0], -(item[1] - item[0])))
     kept: list[tuple[int, int, str]] = []
 
@@ -872,6 +1045,14 @@ def _dedupe_spans_preserving_order(matches: list[tuple[int, int, str]]) -> list[
 
 
 def _extract_temporal_entities(text: str) -> list[str]:
+    """Extract temporal entity strings from text using regex patterns.
+
+    Args:
+        text: The input text.
+
+    Returns:
+        List of normalized temporal entity strings.
+    """
     matches = []
     for pattern in TEMPORAL_PATTERNS:
         matches.extend(
@@ -891,6 +1072,16 @@ def _extract_temporal_entities(text: str) -> list[str]:
 
 
 def _normalize_location_output(value: str) -> str:
+    """Normalize a location candidate string.
+
+    Removes leading articles, descriptors, and empty words.
+
+    Args:
+        value: The raw location candidate.
+
+    Returns:
+        Normalized location string, or empty if invalid.
+    """
     words = WORD_PATTERN.findall(value)
     if not words:
         return ''
@@ -940,6 +1131,14 @@ def _normalize_location_output(value: str) -> str:
 
 
 def _location_matches_from_patterns(text: str) -> list[tuple[int, int, str]]:
+    """Find location entity matches in text using multiple regex patterns.
+
+    Args:
+        text: The input text.
+
+    Returns:
+        List of (start, end, normalized_value) tuples.
+    """
     matches: list[tuple[int, int, str]] = []
 
     for location in sorted(KNOWN_LOCATIONS, key=len, reverse=True):
@@ -991,6 +1190,14 @@ def _location_matches_from_patterns(text: str) -> list[tuple[int, int, str]]:
 
 
 def _extract_location_entities(text: str) -> list[str]:
+    """Extract location entity strings from text using rules and patterns.
+
+    Args:
+        text: The input text.
+
+    Returns:
+        List of normalized location entity strings.
+    """
     matches = _location_matches_from_patterns(text)
     fallback_candidates = _find_place_noun_candidates(text)
     for candidate in fallback_candidates:
@@ -1005,6 +1212,14 @@ def _extract_location_entities(text: str) -> list[str]:
 
 
 def extract_entities(text: str) -> ExtractedEntities:
+    """Extract temporal and location entities using pure rule-based methods.
+
+    Args:
+        text: The input text.
+
+    Returns:
+        ExtractedEntities with temporal and location lists.
+    """
     return ExtractedEntities(
         temporal_entities=_extract_temporal_entities(text),
         location_entities=_extract_location_entities(text),
@@ -1012,6 +1227,15 @@ def extract_entities(text: str) -> ExtractedEntities:
 
 
 def extract_entities_hybrid(text: str, use_llm: bool = True) -> ExtractedEntities:
+    """Extract entities using rule-based methods optionally augmented by an LLM.
+
+    Args:
+        text: The input text.
+        use_llm: If True, also use LLM-based extraction and merge results.
+
+    Returns:
+        ExtractedEntities with merged temporal and location entities.
+    """
     rule_entities = extract_entities(text)
     if not use_llm:
         return rule_entities
@@ -1028,6 +1252,15 @@ def extract_entities_hybrid(text: str, use_llm: bool = True) -> ExtractedEntitie
 
 
 def entities_as_metadata(text: str, use_llm: bool = False) -> dict[str, str]:
+    """Extract entities and return as ChromaDB-compatible metadata dict.
+
+    Args:
+        text: The input text.
+        use_llm: If True, use LLM augmentation.
+
+    Returns:
+        Dict with 'temporal_entities' and 'location_entities' as comma-separated strings.
+    """
     entities = extract_entities_hybrid(text, use_llm=use_llm)
     return {
         'temporal_entities': ', '.join(entities.temporal_entities),

@@ -9,15 +9,24 @@ from fastapi import WebSocket
 from app.domain.models import PlayerStatus
 from app.domain.store import store
 
+"""WebSocket-based presence management and event broadcasting."""
+
 GRACE_SEC = 2  # Reload-Toleranz
 
 
 class PresenceBus:
-    """
-    Präsenzverwaltung die einzelnen frontends/Spieler:
-    - register/unregister verknüpft WebSocket mit player_id
-    - broadcast_all sendet an alle verbundenen Sockets
-    - publish bleibt als Alias auf broadcast_all
+    """Manages WebSocket connections and broadcasts events to connected clients.
+
+    Each player can have multiple WebSocket connections (e.g., multiple browser
+    tabs). When the last connection for a player is closed, a delayed leave
+    event is published after a grace period.
+
+    Attributes:
+        _lock: Async lock for thread-safe access.
+        _sockets: Set of all connected WebSocket connections.
+        _ws_meta: Mapping from WebSocket to player metadata dict.
+        _player_sockets: Mapping from player_id to set of their WebSockets.
+        _pending_leave: Mapping from player_id to delayed leave tasks.
     """
 
     def __init__(self, timeout_sec: int = 60):
@@ -30,7 +39,16 @@ class PresenceBus:
         self._pending_leave: dict[str, asyncio.Task] = {}  # player_id -> task
 
     async def register(self, ws: WebSocket, player_id: str, name: str, role: str):
-        """Neuen Socket registrieren und Join-Event broadcasten"""
+        """Register a new WebSocket connection for a player.
+
+        Cancels any pending leave task for this player.
+
+        Args:
+            ws: The WebSocket connection to register.
+            player_id: The player's unique identifier.
+            name: The player's display name.
+            role: The player's role (leader/member).
+        """
         async with self._lock:
             pid = str(player_id)
             self._sockets.add(ws)
@@ -48,7 +66,14 @@ class PresenceBus:
                 # task.add_done_callback(_silence_task_exception)
 
     async def unregister(self, ws: WebSocket):
-        """Socket abmelden und Leave-Event broadcasten"""
+        """Unregister a WebSocket connection and schedule a leave event.
+
+        If this was the last connection for the player, a delayed leave is
+        scheduled after a grace period to handle reconnections.
+
+        Args:
+            ws: The WebSocket connection to unregister.
+        """
         meta = None
         last_socket_for_player = False
 
@@ -105,7 +130,11 @@ class PresenceBus:
             self._pending_leave[player_id] = task
 
     async def publish(self, event: dict):
-        """An alle verbundenen Sockets senden"""
+        """Broadcast an event to all connected WebSocket clients.
+
+        Args:
+            event: The event dict to serialize and send.
+        """
         data = json.dumps(event, default=str)
         dead: list[WebSocket] = []
         async with self._lock:
@@ -119,11 +148,22 @@ class PresenceBus:
             await self.unregister(ws)
 
     async def _backend_leave_and_publish(self, player_id: str):
+        """Deactivate a player in the store and broadcast the leave event.
+
+        Args:
+            player_id: The player's unique identifier.
+        """
         with contextlib.suppress(Exception):
             await store.group.deactivate(UUID(player_id), status=PlayerStatus.inactive)
         await self.publish({'type': 'leave', 'player_id': str(player_id)})
 
     async def kick(self, player_id: UUID):
+        """Forcefully disconnect all WebSocket connections for a player.
+
+        Args:
+            player_id: The UUID of the player to kick.
+        """
+        pid = str(player_id)
         pid = str(player_id)
         async with self._lock:
             sockets = list(self._player_sockets.get(pid, set()))

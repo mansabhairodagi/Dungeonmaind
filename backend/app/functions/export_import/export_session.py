@@ -1,3 +1,5 @@
+"""Functions for exporting game session data (group, settings, ChromaDB)."""
+
 import json
 import os
 import shutil
@@ -14,8 +16,10 @@ BASE_DIR = os.path.join(settings.backend_root_path, 'data', 'SavedSessions')
 
 
 def export_group_to_json(folder_path: str) -> None:
-    """
-    Saves a list of Group objects (and their players) into a JSON file.
+    """Save the current group and its players to a JSON file.
+
+    Args:
+        folder_path: Directory path where group.json will be written.
     """
 
     if len(store.group.players) == 0:
@@ -43,8 +47,10 @@ def export_group_to_json(folder_path: str) -> None:
 
 
 def export_settings_to_json(folder_path: str) -> None:
-    """
-    Export all fields of the settings-object to a JSON file.
+    """Export all settings fields to a JSON file.
+
+    Args:
+        folder_path: Directory path where settings.json will be written.
     """
     data = {}
 
@@ -61,9 +67,10 @@ def export_settings_to_json(folder_path: str) -> None:
 
 
 def copy_chroma_db(folder_path: str) -> None:
-    """
-    Copies the 'chroma_db' folder (including all its files)
-    into the specified destination path.
+    """Copy the ChromaDB folder to a destination path.
+
+    Args:
+        folder_path: Destination directory for the ChromaDB copy.
     """
     source_path = settings.chroma_db_path
 
@@ -91,12 +98,14 @@ def copy_chroma_db(folder_path: str) -> None:
 # Not sure if this is wanted for all players, if they are kept seperately for each player. Would also e necessary to save the player uuid in the file or filename
 # to know in the read in, which one belongs to which
 async def export_chat_history_of_player(player_id: UUID, folder_path: str) -> None:
-    """
-    Exports the chat history of a given player to a TXT file.
+    """Export the chat history of a given player to a TXT file.
 
     Args:
         player_id: The UUID of the player.
         folder_path: Directory where the chat file will be saved.
+
+    Raises:
+        ValueError: If no chat history is found for the player.
     """
 
     history = await chat_store.history(player_id)
@@ -113,6 +122,15 @@ async def export_chat_history_of_player(player_id: UUID, folder_path: str) -> No
 
 
 def get_folder_name(campaign_name: str, session_name: str) -> str:
+    """Get or create the folder path for a campaign/session combination.
+
+    Args:
+        campaign_name: Name of the campaign.
+        session_name: Name of the session.
+
+    Returns:
+        Absolute path to the session folder.
+    """
     folder_path = os.path.join(BASE_DIR, os.path.join(campaign_name, session_name))
     os.makedirs(folder_path, exist_ok=True)
 
@@ -120,6 +138,13 @@ def get_folder_name(campaign_name: str, session_name: str) -> str:
 
 
 def rename_folder(campaign_name: str, old_session_name: str, new_session_name: str) -> None:
+    """Rename a session folder within a campaign.
+
+    Args:
+        campaign_name: Name of the campaign.
+        old_session_name: Current name of the session.
+        new_session_name: New name for the session.
+    """
     old_folder_path = os.path.join(BASE_DIR, os.path.join(campaign_name, old_session_name))
     new_folder_path = os.path.join(BASE_DIR, os.path.join(campaign_name, new_session_name))
     os.rename(old_folder_path, new_folder_path)

@@ -1,3 +1,5 @@
+"""REST API router for player management (join, leave, kick, health, voiceprint)."""
+
 import contextlib
 from uuid import UUID
 
@@ -51,6 +53,11 @@ async def _get_all_players() -> list[DomainPlayer]:
 
 @router.get('/state', response_model=GroupStateOut)
 async def group_state():
+    """Return the current group state (ID, size, max_size).
+
+    Returns:
+        GroupStateOut with group metadata.
+    """
     g = store.group
     return GroupStateOut(group_id=g.id, size=g.size(), max_size=g.max_size())
 
@@ -60,6 +67,15 @@ async def group_state():
 
 @router.get('', response_model=list[PlayerOut])
 async def list_players(request: Request, include_inactive: bool = False):
+    """List all players, optionally including inactive ones.
+
+    Args:
+        request: The incoming HTTP request.
+        include_inactive: If True, include inactive and kicked players.
+
+    Returns:
+        List of PlayerOut schemas.
+    """
     players = await _get_all_players()
 
     if not include_inactive:
@@ -73,6 +89,15 @@ async def list_players(request: Request, include_inactive: bool = False):
 
 @router.get('/join/check', response_model=JoinCheckOut)
 async def join_check(name: str, request: Request):
+    """Check if a player name is available for joining.
+
+    Args:
+        name: The player name to check.
+        request: The incoming HTTP request.
+
+    Returns:
+        JoinCheckOut with status and optional candidate.
+    """
     players = await _get_all_players()
     target = name.strip().lower()
 
@@ -93,6 +118,15 @@ async def join_check(name: str, request: Request):
 # Join (new + reuse)
 @router.post('', response_model=PlayerOut, status_code=status.HTTP_201_CREATED)
 async def join(payload: PlayerIn, request: Request):
+    """Join a new player or reuse an existing inactive player.
+
+    Args:
+        payload: PlayerIn data (name, role, optional reuse_id).
+        request: The incoming HTTP request.
+
+    Returns:
+        The created or reactivated PlayerOut.
+    """
     # Reuse existing inactive/kicked player
     if payload.reuse_id:
         try:
@@ -143,6 +177,11 @@ async def join(payload: PlayerIn, request: Request):
 
 @router.delete('/{player_id}', status_code=status.HTTP_204_NO_CONTENT)
 async def leave(player_id: UUID):
+    """Remove a player from the group (mark as inactive).
+
+    Args:
+        player_id: The UUID of the player to remove.
+    """
     await store.leave(player_id)
     await bus.publish({'type': 'leave', 'player_id': str(player_id)})
     return None
@@ -152,6 +191,18 @@ async def _require_leader(
     actor_id: UUID | None = Query(None, alias='actor_id'),
     x_player_id: str | None = Header(default=None, alias='X-Player-Id'),
 ):
+    """Dependency that ensures the requester is an active leader.
+
+    Args:
+        actor_id: Optional query parameter for the actor's UUID.
+        x_player_id: Optional X-Player-Id header.
+
+    Returns:
+        The leader Player object.
+
+    Raises:
+        HTTPException 403: If no active leader is found.
+    """
     candidate_ids: list[UUID] = []
 
     if actor_id:
@@ -172,6 +223,12 @@ async def _require_leader(
 
 @router.post('/{player_id}/kick', status_code=status.HTTP_204_NO_CONTENT)
 async def kick(player_id: UUID, _leader=Depends(_require_leader)):
+    """Kick a player from the group (leader-only).
+
+    Args:
+        player_id: The UUID of the player to kick.
+        _leader: The authenticated leader (dependency).
+    """
     try:
         p = await store.get_player(player_id)
     except KeyError:
@@ -188,6 +245,14 @@ async def kick(player_id: UUID, _leader=Depends(_require_leader)):
 
 @router.get('/{player_id}/exists')
 async def player_exists(player_id: UUID):
+    """Check if a player UUID exists in the store.
+
+    Args:
+        player_id: The UUID to check.
+
+    Returns:
+        Dict with 'exists' boolean.
+    """
     try:
         await store.get_player(player_id)
         return {'exists': True}
@@ -205,6 +270,17 @@ async def update_player(
     request: Request,
     x_player_id: str | None = Header(default=None, alias='X-Player-Id'),
 ):
+    """Update a player's ability scores (self-only via X-Player-Id header).
+
+    Args:
+        player_id: The UUID of the player to update.
+        payload: AbilitiesIn with fields to update.
+        request: The incoming HTTP request.
+        x_player_id: X-Player-Id header for authorization.
+
+    Returns:
+        The updated PlayerOut.
+    """
     if not x_player_id or x_player_id != str(player_id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -231,6 +307,16 @@ async def update_player(
 
 @router.patch('/{player_id}/health', response_model=PlayerOut)
 async def patch_health(player_id: UUID, patch: HpPatch, request: Request):
+    """Patch a player's HP values (current, max, temp).
+
+    Args:
+        player_id: The UUID of the player.
+        patch: HpPatch with fields to update.
+        request: The incoming HTTP request.
+
+    Returns:
+        The updated PlayerOut.
+    """
     p = await store.get_player(player_id)
 
     if patch.current is not None:
@@ -256,6 +342,16 @@ async def patch_health(player_id: UUID, patch: HpPatch, request: Request):
 
 @router.post('/{player_id}/damage', response_model=PlayerOut)
 async def apply_damage(player_id: UUID, body: PlayerDamageBody, request: Request):
+    """Apply damage to a player.
+
+    Args:
+        player_id: The UUID of the player.
+        body: PlayerDamageBody with damage amount.
+        request: The incoming HTTP request.
+
+    Returns:
+        The updated PlayerOut.
+    """
     p = await store.get_player(player_id)
     p.apply_damage(body.damage)
     await store.save_player(p)
@@ -273,6 +369,16 @@ async def apply_damage(player_id: UUID, body: PlayerDamageBody, request: Request
 
 @router.post('/{player_id}/heal', response_model=PlayerOut)
 async def apply_heal(player_id: UUID, body: PlayerHealBody, request: Request):
+    """Heal a player by a given amount.
+
+    Args:
+        player_id: The UUID of the player.
+        body: PlayerHealBody with heal amount.
+        request: The incoming HTTP request.
+
+    Returns:
+        The updated PlayerOut.
+    """
     p = await store.get_player(player_id)
     p.heal(body.heal)
     await store.save_player(p)
@@ -290,6 +396,16 @@ async def apply_heal(player_id: UUID, body: PlayerHealBody, request: Request):
 
 @router.post('/{player_id}/health/max', response_model=PlayerOut)
 async def update_max_hp(player_id: UUID, body: MaxHpUpdate, request: Request):
+    """Update a player's maximum HP.
+
+    Args:
+        player_id: The UUID of the player.
+        body: MaxHpUpdate with the new max HP.
+        request: The incoming HTTP request.
+
+    Returns:
+        The updated PlayerOut.
+    """
     try:
         p = await store.update_player_max_hp(player_id, body.max)
     except KeyError:
@@ -314,6 +430,16 @@ async def update_max_hp(player_id: UUID, body: MaxHpUpdate, request: Request):
 async def upload_player_voiceprint(
     player_id: UUID, request: Request, audio: UploadFile = File(...)
 ):
+    """Upload a voiceprint audio file for a player.
+
+    Args:
+        player_id: The UUID of the player.
+        request: The incoming HTTP request.
+        audio: The uploaded audio file.
+
+    Returns:
+        The updated PlayerOut with has_voiceprint=True.
+    """
     try:
         p = await store.get_player(player_id)
     except KeyError:

@@ -1,3 +1,5 @@
+"""REST API router for exporting, importing, and managing saved sessions."""
+
 import os
 from pathlib import Path
 
@@ -40,6 +42,11 @@ DATA_DIR = os.path.join(settings.backend_root_path, 'data')
 
 @router.post('/export')
 def export_session(req: ExportRequest) -> None:
+    """Export the current session (group, settings, ChromaDB) to a folder.
+
+    Args:
+        req: ExportRequest with campaign and session names.
+    """
     campaign_folder_path = os.path.join(SAVED_SESSIONS_DIR, req.campaign_name)
     try:
         if not os.path.exists(campaign_folder_path):
@@ -58,6 +65,15 @@ def export_session(req: ExportRequest) -> None:
 
 @router.post('/import')
 async def import_session(req: ImportRequest, request: Request) -> PlayerOut:
+    """Import a saved session (group, settings, ChromaDB) from a folder.
+
+    Args:
+        req: ImportRequest with campaign and session names.
+        request: The incoming HTTP request.
+
+    Returns:
+        PlayerOut for the leader of the imported session.
+    """
     folder_path = os.path.join(SAVED_SESSIONS_DIR, req.campaign_name, req.session_name)
     if not os.path.isdir(folder_path):
         raise HTTPException(
@@ -81,6 +97,11 @@ async def import_session(req: ImportRequest, request: Request) -> PlayerOut:
 
 @router.get('/getSessions', response_model=Sessions)
 def get_sessions() -> None:
+    """List all saved session folders under SavedSessions directory.
+
+    Returns:
+        Sessions model with folder names.
+    """
     base_path = Path(SAVED_SESSIONS_DIR)
 
     if not base_path.exists() or not base_path.is_dir():
@@ -93,6 +114,11 @@ def get_sessions() -> None:
 
 @router.get('/getCampaigns', response_model=Campaigns)
 def get_campaigns():
+    """List all campaigns and their sessions.
+
+    Returns:
+        Campaigns model mapping campaign names to their sessions.
+    """
     base_path = Path(SAVED_SESSIONS_DIR)
 
     if not base_path.exists() or not base_path.is_dir():
@@ -112,9 +138,19 @@ def get_campaigns():
 
 @router.post('/deleteCampaignsOrSessions')
 def delete_campaigns_or_sessions(req: DeleteRequest):
+    """Delete a campaign or session folder.
+
+    Args:
+        req: DeleteRequest with the name of the campaign or session to delete.
+    """
     delete_folder(req.campaign_or_session_name)
 
 
 @router.post('/renameSession')
 def rename_session(req: RenameRequest):
+    """Rename a saved session folder.
+
+    Args:
+        req: RenameRequest with campaign, old and new session names.
+    """
     rename_folder(req.campaign_name, req.old_session_name, req.new_session_name)

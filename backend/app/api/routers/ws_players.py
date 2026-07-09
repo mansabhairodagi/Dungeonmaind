@@ -1,4 +1,5 @@
-# live Update des frontends wenn sich etwas an der gruppe ändert
+"""WebSocket endpoint for live player presence updates."""
+
 from uuid import UUID
 
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
@@ -16,6 +17,17 @@ async def ws_players(
     name: str = Query(...),
     role: str = Query(...),
 ):
+    """WebSocket endpoint for live player presence updates.
+
+    Registers the connection with the PresenceBus and keeps it open
+    for broadcasting events. Disconnects are handled automatically.
+
+    Args:
+        websocket: The WebSocket connection.
+        player_id: Query parameter with the player's UUID.
+        name: Query parameter with the player's display name.
+        role: Query parameter with the player's role.
+    """
     await websocket.accept()
     try:
         p = store.group.get_player(player_id)

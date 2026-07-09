@@ -37,11 +37,11 @@ from app.functions.embedding.embedding_model import embedd_transcriptions
 from app.functions.llm.event_extractor import extract_events_from_transcriptions
 
 
-def load_transcription_model():
+def load_transcription_model() -> object:
     """Load the WhisperX transcription model based on settings.
 
     Returns:
-        Loaded WhisperX transcription model.
+        object: Loaded WhisperX transcription model.
     """
     new_model = whisperx.load_model(
         settings.transcription_model,
@@ -60,11 +60,11 @@ def reload_transcription_model():
     transcription_model = load_transcription_model()
 
 
-def load_diarize_model():
+def load_diarize_model() -> DiarizationPipeline | None:
     """Load the speaker diarization pipeline if HF_TOKEN is configured.
 
     Returns:
-        DiarizationPipeline instance or None if unavailable.
+        DiarizationPipeline | None: DiarizationPipeline instance or None if unavailable.
     """
     if not settings.hf_token:
         print('Warning: HF_TOKEN is not set. Speaker diarization disabled.')
@@ -108,7 +108,9 @@ else:
     print('Transcription model loaded (diarization disabled).')
 
 
-async def transcribe_audio(audio_bytes: bytes, content_type: str, batch_size=16):
+async def transcribe_audio(
+    audio_bytes: bytes, content_type: str, batch_size: int = 16
+) -> list | None:
     """Transcribe audio bytes with speaker diarization and voiceprint recognition.
 
     Combines player voiceprints with session audio, performs WhisperX transcription,
@@ -118,10 +120,10 @@ async def transcribe_audio(audio_bytes: bytes, content_type: str, batch_size=16)
     Args:
         audio_bytes: Raw audio bytes.
         content_type: MIME type of the audio.
-        batch_size: Batch size for WhisperX transcription.
+        batch_size (int): Batch size for WhisperX transcription.
 
     Returns:
-        List of filtered segments with speaker labels, or None on error.
+        list | None: List of filtered segments with speaker labels, or None on error.
     """
     # Robust content type parsing and saving bytes to a temporary file
     file_extension_map = {'ogg': 'ogg', 'webm': 'webm', 'wav': 'wav', 'mpeg': 'mp3', 'mp4': 'mp4'}

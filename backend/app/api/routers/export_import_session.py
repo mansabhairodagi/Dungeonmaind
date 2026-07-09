@@ -113,11 +113,11 @@ def get_sessions() -> None:
 
 
 @router.get('/getCampaigns', response_model=Campaigns)
-def get_campaigns():
+def get_campaigns() -> Campaigns:
     """List all campaigns and their sessions.
 
     Returns:
-        Campaigns model mapping campaign names to their sessions.
+        Campaigns: Campaigns model mapping campaign names to their sessions.
     """
     base_path = Path(SAVED_SESSIONS_DIR)
 

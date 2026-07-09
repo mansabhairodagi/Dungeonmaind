@@ -52,11 +52,11 @@ async def _get_all_players() -> list[DomainPlayer]:
 
 
 @router.get('/state', response_model=GroupStateOut)
-async def group_state():
+async def group_state() -> GroupStateOut:
     """Return the current group state (ID, size, max_size).
 
     Returns:
-        GroupStateOut with group metadata.
+        GroupStateOut: GroupStateOut with group metadata.
     """
     g = store.group
     return GroupStateOut(group_id=g.id, size=g.size(), max_size=g.max_size())
@@ -66,15 +66,15 @@ async def group_state():
 
 
 @router.get('', response_model=list[PlayerOut])
-async def list_players(request: Request, include_inactive: bool = False):
+async def list_players(request: Request, include_inactive: bool = False) -> list[PlayerOut]:
     """List all players, optionally including inactive ones.
 
     Args:
-        request: The incoming HTTP request.
-        include_inactive: If True, include inactive and kicked players.
+        request (Request): The incoming HTTP request.
+        include_inactive (bool): If True, include inactive and kicked players.
 
     Returns:
-        List of PlayerOut schemas.
+        list[PlayerOut]: List of PlayerOut schemas.
     """
     players = await _get_all_players()
 
@@ -88,15 +88,15 @@ async def list_players(request: Request, include_inactive: bool = False):
 
 
 @router.get('/join/check', response_model=JoinCheckOut)
-async def join_check(name: str, request: Request):
+async def join_check(name: str, request: Request) -> JoinCheckOut:
     """Check if a player name is available for joining.
 
     Args:
-        name: The player name to check.
-        request: The incoming HTTP request.
+        name (str): The player name to check.
+        request (Request): The incoming HTTP request.
 
     Returns:
-        JoinCheckOut with status and optional candidate.
+        JoinCheckOut: JoinCheckOut with status and optional candidate.
     """
     players = await _get_all_players()
     target = name.strip().lower()
@@ -117,15 +117,15 @@ async def join_check(name: str, request: Request):
 
 # Join (new + reuse)
 @router.post('', response_model=PlayerOut, status_code=status.HTTP_201_CREATED)
-async def join(payload: PlayerIn, request: Request):
+async def join(payload: PlayerIn, request: Request) -> PlayerOut:
     """Join a new player or reuse an existing inactive player.
 
     Args:
-        payload: PlayerIn data (name, role, optional reuse_id).
-        request: The incoming HTTP request.
+        payload (PlayerIn): PlayerIn data (name, role, optional reuse_id).
+        request (Request): The incoming HTTP request.
 
     Returns:
-        The created or reactivated PlayerOut.
+        PlayerOut: The created or reactivated PlayerOut.
     """
     # Reuse existing inactive/kicked player
     if payload.reuse_id:
@@ -222,12 +222,12 @@ async def _require_leader(
 
 
 @router.post('/{player_id}/kick', status_code=status.HTTP_204_NO_CONTENT)
-async def kick(player_id: UUID, _leader=Depends(_require_leader)):
+async def kick(player_id: UUID, _leader: DomainPlayer = Depends(_require_leader)) -> None:
     """Kick a player from the group (leader-only).
 
     Args:
-        player_id: The UUID of the player to kick.
-        _leader: The authenticated leader (dependency).
+        player_id (UUID): The UUID of the player to kick.
+        _leader (DomainPlayer): The authenticated leader (dependency).
     """
     try:
         p = await store.get_player(player_id)
@@ -244,14 +244,14 @@ async def kick(player_id: UUID, _leader=Depends(_require_leader)):
 
 
 @router.get('/{player_id}/exists')
-async def player_exists(player_id: UUID):
+async def player_exists(player_id: UUID) -> dict:
     """Check if a player UUID exists in the store.
 
     Args:
-        player_id: The UUID to check.
+        player_id (UUID): The UUID to check.
 
     Returns:
-        Dict with 'exists' boolean.
+        dict: Dict with 'exists' boolean.
     """
     try:
         await store.get_player(player_id)
@@ -269,17 +269,17 @@ async def update_player(
     payload: AbilitiesIn,
     request: Request,
     x_player_id: str | None = Header(default=None, alias='X-Player-Id'),
-):
+) -> PlayerOut:
     """Update a player's ability scores (self-only via X-Player-Id header).
 
     Args:
-        player_id: The UUID of the player to update.
-        payload: AbilitiesIn with fields to update.
-        request: The incoming HTTP request.
-        x_player_id: X-Player-Id header for authorization.
+        player_id (UUID): The UUID of the player to update.
+        payload (AbilitiesIn): AbilitiesIn with fields to update.
+        request (Request): The incoming HTTP request.
+        x_player_id (str | None): X-Player-Id header for authorization.
 
     Returns:
-        The updated PlayerOut.
+        PlayerOut: The updated PlayerOut.
     """
     if not x_player_id or x_player_id != str(player_id):
         raise HTTPException(
@@ -306,16 +306,16 @@ async def update_player(
 
 
 @router.patch('/{player_id}/health', response_model=PlayerOut)
-async def patch_health(player_id: UUID, patch: HpPatch, request: Request):
+async def patch_health(player_id: UUID, patch: HpPatch, request: Request) -> PlayerOut:
     """Patch a player's HP values (current, max, temp).
 
     Args:
-        player_id: The UUID of the player.
-        patch: HpPatch with fields to update.
-        request: The incoming HTTP request.
+        player_id (UUID): The UUID of the player.
+        patch (HpPatch): HpPatch with fields to update.
+        request (Request): The incoming HTTP request.
 
     Returns:
-        The updated PlayerOut.
+        PlayerOut: The updated PlayerOut.
     """
     p = await store.get_player(player_id)
 
@@ -341,16 +341,16 @@ async def patch_health(player_id: UUID, patch: HpPatch, request: Request):
 
 
 @router.post('/{player_id}/damage', response_model=PlayerOut)
-async def apply_damage(player_id: UUID, body: PlayerDamageBody, request: Request):
+async def apply_damage(player_id: UUID, body: PlayerDamageBody, request: Request) -> PlayerOut:
     """Apply damage to a player.
 
     Args:
-        player_id: The UUID of the player.
-        body: PlayerDamageBody with damage amount.
-        request: The incoming HTTP request.
+        player_id (UUID): The UUID of the player.
+        body (PlayerDamageBody): PlayerDamageBody with damage amount.
+        request (Request): The incoming HTTP request.
 
     Returns:
-        The updated PlayerOut.
+        PlayerOut: The updated PlayerOut.
     """
     p = await store.get_player(player_id)
     p.apply_damage(body.damage)
@@ -368,16 +368,16 @@ async def apply_damage(player_id: UUID, body: PlayerDamageBody, request: Request
 
 
 @router.post('/{player_id}/heal', response_model=PlayerOut)
-async def apply_heal(player_id: UUID, body: PlayerHealBody, request: Request):
+async def apply_heal(player_id: UUID, body: PlayerHealBody, request: Request) -> PlayerOut:
     """Heal a player by a given amount.
 
     Args:
-        player_id: The UUID of the player.
-        body: PlayerHealBody with heal amount.
-        request: The incoming HTTP request.
+        player_id (UUID): The UUID of the player.
+        body (PlayerHealBody): PlayerHealBody with heal amount.
+        request (Request): The incoming HTTP request.
 
     Returns:
-        The updated PlayerOut.
+        PlayerOut: The updated PlayerOut.
     """
     p = await store.get_player(player_id)
     p.heal(body.heal)
@@ -395,16 +395,16 @@ async def apply_heal(player_id: UUID, body: PlayerHealBody, request: Request):
 
 
 @router.post('/{player_id}/health/max', response_model=PlayerOut)
-async def update_max_hp(player_id: UUID, body: MaxHpUpdate, request: Request):
+async def update_max_hp(player_id: UUID, body: MaxHpUpdate, request: Request) -> PlayerOut:
     """Update a player's maximum HP.
 
     Args:
-        player_id: The UUID of the player.
-        body: MaxHpUpdate with the new max HP.
-        request: The incoming HTTP request.
+        player_id (UUID): The UUID of the player.
+        body (MaxHpUpdate): MaxHpUpdate with the new max HP.
+        request (Request): The incoming HTTP request.
 
     Returns:
-        The updated PlayerOut.
+        PlayerOut: The updated PlayerOut.
     """
     try:
         p = await store.update_player_max_hp(player_id, body.max)
@@ -429,16 +429,16 @@ async def update_max_hp(player_id: UUID, body: MaxHpUpdate, request: Request):
 @router.post('/{player_id}/voiceprint', response_model=PlayerOut)
 async def upload_player_voiceprint(
     player_id: UUID, request: Request, audio: UploadFile = File(...)
-):
+) -> PlayerOut:
     """Upload a voiceprint audio file for a player.
 
     Args:
-        player_id: The UUID of the player.
-        request: The incoming HTTP request.
-        audio: The uploaded audio file.
+        player_id (UUID): The UUID of the player.
+        request (Request): The incoming HTTP request.
+        audio (UploadFile): The uploaded audio file.
 
     Returns:
-        The updated PlayerOut with has_voiceprint=True.
+        PlayerOut: The updated PlayerOut with has_voiceprint=True.
     """
     try:
         p = await store.get_player(player_id)

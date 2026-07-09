@@ -15,11 +15,11 @@ BASE_DIR = os.path.join(settings.backend_root_path, 'data', 'markdowns')
 
 
 @router.get('/folders', response_model=FolderStructure)
-async def get_folders():
+async def get_folders() -> FolderStructure:
     """List the folder structure of the rulebook markdown directory.
 
     Returns:
-        FolderStructure mapping relative paths to their subfolders and .md files.
+        FolderStructure: FolderStructure mapping relative paths to their subfolders and .md files.
     """
     folder_dict = {}
     for root, dirs, files in os.walk(BASE_DIR):
@@ -34,14 +34,14 @@ async def get_folders():
 
 
 @router.get('/file', response_model=FileContentResponse)
-async def get_file(path: str):
+async def get_file(path: str) -> FileContentResponse:
     """Get the raw content of a specific markdown file.
 
     Args:
-        path: Relative path to the markdown file.
+        path (str): Relative path to the markdown file.
 
     Returns:
-        FileContentResponse with the file content.
+        FileContentResponse: FileContentResponse with the file content.
 
     Raises:
         HTTPException 404: If the file is not found.
@@ -54,14 +54,14 @@ async def get_file(path: str):
 
 
 @router.post('/search', response_model=EmbeddResponse)
-async def search_files(req: EmbeddingSearch):
+async def search_files(req: EmbeddingSearch) -> EmbeddResponse:
     """Search the rulebook using embedding-based similarity search.
 
     Args:
-        req: EmbeddingSearch with the search query string.
+        req (EmbeddingSearch): EmbeddingSearch with the search query string.
 
     Returns:
-        EmbeddResponse with matching markdown texts.
+        EmbeddResponse: EmbeddResponse with matching markdown texts.
 
     Raises:
         HTTPException 404: If no matching markdowns are found.

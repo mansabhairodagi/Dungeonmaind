@@ -39,7 +39,7 @@ def _is_entity_listing_request(text: str) -> bool:
 
 
 @router.post('/run', response_class=StreamingResponse)
-async def run_llm(req: LLMRequest):
+async def run_llm(req: LLMRequest) -> StreamingResponse:
     """Query the LLM with a player's input, returning a streaming response.
 
     Retrieves relevant context from the rulebook and transcriptions,
@@ -49,7 +49,7 @@ async def run_llm(req: LLMRequest):
         req: LLMRequest with player_id, input_string, and use_rulebook flag.
 
     Returns:
-        StreamingResponse yielding LLM output chunks.
+        StreamingResponse: StreamingResponse yielding LLM output chunks.
     """
     # 1) Spieler existiert?
     try:

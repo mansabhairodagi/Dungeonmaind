@@ -18,14 +18,16 @@ router = APIRouter()
 
 
 @router.get('/events', response_model=TimelineEventListResponse)
-async def list_events(session_id: str = Query('default', description='Session identifier')):
+async def list_events(
+    session_id: str = Query('default', description='Session identifier'),
+) -> TimelineEventListResponse:
     """List all timeline events for a given session.
 
     Args:
-        session_id: Session identifier (default 'default').
+        session_id (str): Session identifier (default 'default').
 
     Returns:
-        TimelineEventListResponse with events and total count.
+        TimelineEventListResponse: TimelineEventListResponse with events and total count.
     """
     events = await timeline_store.get_session_events(session_id)
     return TimelineEventListResponse(
@@ -34,14 +36,14 @@ async def list_events(session_id: str = Query('default', description='Session id
 
 
 @router.get('/events/{event_id}', response_model=TimelineEventOut)
-async def get_event(event_id: str):
+async def get_event(event_id: str) -> TimelineEventOut:
     """Get a single timeline event by its ID.
 
     Args:
-        event_id: The event identifier.
+        event_id (str): The event identifier.
 
     Returns:
-        TimelineEventOut for the requested event.
+        TimelineEventOut: TimelineEventOut for the requested event.
 
     Raises:
         HTTPException 404: If the event is not found.
@@ -53,14 +55,14 @@ async def get_event(event_id: str):
 
 
 @router.delete('/events/{event_id}', response_model=TimelineDeleteResponse)
-async def delete_event(event_id: str):
+async def delete_event(event_id: str) -> TimelineDeleteResponse:
     """Delete a single timeline event by its ID.
 
     Args:
-        event_id: The event identifier.
+        event_id (str): The event identifier.
 
     Returns:
-        TimelineDeleteResponse indicating success.
+        TimelineDeleteResponse: TimelineDeleteResponse indicating success.
     """
     deleted = await timeline_store.delete_event(event_id)
     return TimelineDeleteResponse(deleted=deleted, event_id=event_id)
@@ -69,28 +71,28 @@ async def delete_event(event_id: str):
 @router.delete('/events', response_model=TimelineDeleteResponse)
 async def clear_session_events(
     session_id: str = Query('default', description='Session identifier'),
-):
+) -> TimelineDeleteResponse:
     """Clear all timeline events for a given session.
 
     Args:
-        session_id: Session identifier (default 'default').
+        session_id (str): Session identifier (default 'default').
 
     Returns:
-        TimelineDeleteResponse indicating success.
+        TimelineDeleteResponse: TimelineDeleteResponse indicating success.
     """
     await timeline_store.clear_session(session_id)
     return TimelineDeleteResponse(deleted=True, event_id=None)
 
 
 @router.post('/generate', response_model=TimelineGenerateResponse)
-async def generate_events(req: TimelineGenerateRequest):
+async def generate_events(req: TimelineGenerateRequest) -> TimelineGenerateResponse:
     """Generate timeline events from all available transcription documents.
 
     Args:
-        req: TimelineGenerateRequest with session_id.
+        req (TimelineGenerateRequest): TimelineGenerateRequest with session_id.
 
     Returns:
-        TimelineGenerateResponse with the generated events.
+        TimelineGenerateResponse: TimelineGenerateResponse with the generated events.
 
     Raises:
         HTTPException 404: If no transcription documents are found.

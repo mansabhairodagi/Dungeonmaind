@@ -451,7 +451,7 @@ class Group:
         """
         return len(self.active())
 
-    def leader_id(self, is_inactive_ok=False) -> UUID | None:
+    def leader_id(self, is_inactive_ok: bool = False) -> UUID | None:
         """Return the UUID of the group leader.
 
         Args:

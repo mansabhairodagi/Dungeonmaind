@@ -15,17 +15,19 @@ from app.core.config import settings
 from app.functions.embedding.entity_extractor import entities_as_metadata
 
 
-def embedding_search(query: str, source=False, persist_directory=None):
+def embedding_search(
+    query: str, source: bool = False, persist_directory: str | None = None
+) -> list[Document]:
     """Perform similarity search over ChromaDB embeddings.
 
     Args:
         query: The query text.
-        source: If True, search only rulebook embeddings; otherwise search
+        source (bool): If True, search only rulebook embeddings; otherwise search
             both rulebook and transcriptions.
-        persist_directory: Optional custom ChromaDB path.
+        persist_directory (str | None): Optional custom ChromaDB path.
 
     Returns:
-        List of Document objects from the vector store.
+        list[Document]: List of Document objects from the vector store.
     """
 
     if persist_directory is None:
@@ -62,11 +64,11 @@ def embedding_search(query: str, source=False, persist_directory=None):
     return results
 
 
-def get_all_transcription_documents(persist_directory=None) -> list[Document]:
+def get_all_transcription_documents(persist_directory: str | None = None) -> list[Document]:
     """Retrieve all transcription documents from ChromaDB.
 
     Args:
-        persist_directory: Optional custom ChromaDB path.
+        persist_directory (str | None): Optional custom ChromaDB path.
 
     Returns:
         List of Document objects with source='transcriptions'.
@@ -89,13 +91,15 @@ def get_all_transcription_documents(persist_directory=None) -> list[Document]:
     ]
 
 
-def embedd_transcriptions(embedding_text: list, speakers: list[str], persist_directory=None):
+def embedd_transcriptions(
+    embedding_text: list[str], speakers: list[str], persist_directory: str | None = None
+):
     """Embed transcription texts with speaker metadata into ChromaDB.
 
     Args:
-        embedding_text: List of text strings to embed.
+        embedding_text (list[str]): List of text strings to embed.
         speakers: List of speaker names corresponding to each text.
-        persist_directory: Optional custom ChromaDB path.
+        persist_directory (str | None): Optional custom ChromaDB path.
 
     Raises:
         ValueError: If embedding_text and speakers have different lengths.
@@ -131,13 +135,15 @@ def embedd_transcriptions(embedding_text: list, speakers: list[str], persist_dir
     write_to_ChromaDB(persist_directory, documents, embedding_model)
 
 
-def embedd_rulebook(embedding_text: list, txt_paths: dict, persist_directory=None):
+def embedd_rulebook(
+    embedding_text: list[str], txt_paths: dict[int, str], persist_directory: str | None = None
+):
     """Embed rulebook text files into ChromaDB.
 
     Args:
         embedding_text: List of text contents.
-        txt_paths: Dict mapping index in embedding_text to absolute txt path.
-        persist_directory: Optional custom ChromaDB path.
+        txt_paths (dict[int, str]): Dict mapping index in embedding_text to absolute txt path.
+        persist_directory (str | None): Optional custom ChromaDB path.
     """
     if persist_directory is None:
         persist_directory = settings.chroma_db_path
@@ -167,15 +173,15 @@ def embedd_rulebook(embedding_text: list, txt_paths: dict, persist_directory=Non
     write_to_ChromaDB(persist_directory, documents, embedding_model)
 
 
-def read_text_files(rulebook_folder=None):
+def read_text_files(rulebook_folder: str | None = None) -> tuple[list[str], list[str]]:
     """Read all .txt files from the rulebook folder.
 
     Args:
-        rulebook_folder: Path to the rulebook folder. Defaults to
+        rulebook_folder (str | None): Path to the rulebook folder. Defaults to
             the configured rulebook path.
 
     Returns:
-        Tuple of (texts list, txt_paths list).
+        tuple[list[str], list[str]]: Tuple of (texts list, txt_paths list).
     """
     if rulebook_folder is None:
         rulebook_folder = os.path.join(settings.backend_root_path, 'data', 'rulebook')
@@ -195,11 +201,11 @@ def read_text_files(rulebook_folder=None):
     return texts, txt_paths
 
 
-def delete_transcription_embeddings(persist_directory=None):
+def delete_transcription_embeddings(persist_directory: str | None = None):
     """Delete all transcription documents from ChromaDB.
 
     Args:
-        persist_directory: Optional custom ChromaDB path.
+        persist_directory (str | None): Optional custom ChromaDB path.
     """
     if persist_directory is None:
         persist_directory = settings.chroma_db_path
@@ -232,11 +238,11 @@ def delete_transcription_embeddings(persist_directory=None):
     # vectorstore._client._system.stop()
 
 
-def has_rulebook_embeddings(persist_directory=None) -> bool:
+def has_rulebook_embeddings(persist_directory: str | None = None) -> bool:
     """Check if rulebook embeddings exist in ChromaDB.
 
     Args:
-        persist_directory: Optional custom ChromaDB path.
+        persist_directory (str | None): Optional custom ChromaDB path.
 
     Returns:
         True if at least one rulebook document exists.
@@ -263,12 +269,12 @@ def has_rulebook_embeddings(persist_directory=None) -> bool:
         return False
 
 
-def reembed_chroma_entries(new_model: str, persist_directory=None):
+def reembed_chroma_entries(new_model: str, persist_directory: str | None = None):
     """Re-embed all documents in ChromaDB with a new embedding model.
 
     Args:
         new_model: Name of the new embedding model.
-        persist_directory: Optional custom ChromaDB path.
+        persist_directory (str | None): Optional custom ChromaDB path.
     """
     if persist_directory is None:
         persist_directory = settings.chroma_db_path
@@ -313,13 +319,15 @@ def reembed_chroma_entries(new_model: str, persist_directory=None):
     # vectorstore._client._system.stop()
 
 
-def delete_chromadb(delete_tmp_only=False, forced_stop=False, persist_directory=None):
+def delete_chromadb(
+    delete_tmp_only: bool = False, forced_stop: bool = False, persist_directory: str | None = None
+):
     """Delete ChromaDB directories, optionally only temporary subfolders.
 
     Args:
-        delete_tmp_only: If True, only delete tmp* subfolders.
-        forced_stop: If True, stop the SQLite client before deletion.
-        persist_directory: Optional custom ChromaDB path.
+        delete_tmp_only (bool): If True, only delete tmp* subfolders.
+        forced_stop (bool): If True, stop the SQLite client before deletion.
+        persist_directory (str | None): Optional custom ChromaDB path.
     """
     if persist_directory is None:
         persist_directory = settings.chroma_db_path
@@ -362,11 +370,11 @@ def delete_chromadb(delete_tmp_only=False, forced_stop=False, persist_directory=
             print('Chroma DB directory does not exist.')
 
 
-def print_all_chromadb_entries(persist_directory=None):
+def print_all_chromadb_entries(persist_directory: str | None = None):
     """Print all entries in ChromaDB for debugging.
 
     Args:
-        persist_directory: Optional custom ChromaDB path.
+        persist_directory (str | None): Optional custom ChromaDB path.
     """
     if persist_directory is None:
         persist_directory = settings.chroma_db_path
@@ -390,13 +398,17 @@ def print_all_chromadb_entries(persist_directory=None):
     # vectorstore._client._system.stop()
 
 
-def write_to_ChromaDB(persist_directory, documents, embedding_model):
+def write_to_ChromaDB(
+    persist_directory: str,
+    documents: list[Document],
+    embedding_model: SentenceTransformerEmbeddings,
+):
     """Write documents to ChromaDB, creating the database if it doesn't exist.
 
     Args:
-        persist_directory: ChromaDB directory path.
-        documents: List of Document objects to add.
-        embedding_model: The embedding function to use.
+        persist_directory (str): ChromaDB directory path.
+        documents (list[Document]): List of Document objects to add.
+        embedding_model (SentenceTransformerEmbeddings): The embedding function to use.
     """
     if os.path.exists(os.path.join(persist_directory, 'chroma.sqlite3')):
         print('found db under ' + persist_directory)
@@ -413,14 +425,14 @@ def write_to_ChromaDB(persist_directory, documents, embedding_model):
     # vectorstore._client._system.stop()
 
 
-def embed_text(embedding_text: str):
+def embed_text(embedding_text: str) -> list[float]:
     """Embed a single text string using the configured model.
 
     Args:
         embedding_text: The text to embed.
 
     Returns:
-        List of embedding floats.
+        list[float]: List of embedding floats.
     """
     embedding_model = SentenceTransformerEmbeddings(model_name=settings.embedding_model)
     embeddings = embedding_model.embed_query(embedding_text)

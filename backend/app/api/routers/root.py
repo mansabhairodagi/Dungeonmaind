@@ -6,10 +6,10 @@ router = APIRouter()
 
 
 @router.get('/')
-async def read_root():
+async def read_root() -> dict:
     """Root endpoint returning a simple greeting message.
 
     Returns:
-        Dict with a welcome message.
+        dict: Dict with a welcome message.
     """
     return {'message': 'Hello I am the root!'}

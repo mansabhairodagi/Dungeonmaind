@@ -13,14 +13,14 @@ router = APIRouter()
 
 
 @router.post('/uploadAudioFileToDB', response_model=UploadAudioFileToDBResponse)
-async def upload_audio_file(audio: UploadFile = File(...)):
+async def upload_audio_file(audio: UploadFile = File(...)) -> UploadAudioFileToDBResponse:
     """Upload an audio file and extract its metadata.
 
     Args:
-        audio: The uploaded audio file.
+        audio (UploadFile): The uploaded audio file.
 
     Returns:
-        UploadAudioFileToDBResponse with filename, content type, and size.
+        UploadAudioFileToDBResponse: UploadAudioFileToDBResponse with filename, content type, and size.
     """
     try:
         # Read file contents
@@ -39,14 +39,14 @@ async def upload_audio_file(audio: UploadFile = File(...)):
 
 
 @router.post('/transcribeAudioFile', response_model=TranscriptionResponse)
-async def transcribe_audio_file(audio: UploadFile = File(...)):
+async def transcribe_audio_file(audio: UploadFile = File(...)) -> TranscriptionResponse:
     """Transcribe an uploaded audio file using WhisperX.
 
     Args:
-        audio: The uploaded audio file.
+        audio (UploadFile): The uploaded audio file.
 
     Returns:
-        TranscriptionResponse with a list of transcribed segments.
+        TranscriptionResponse: TranscriptionResponse with a list of transcribed segments.
     """
     try:
         audio_bytes = await audio.read()

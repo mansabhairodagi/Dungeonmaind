@@ -38,7 +38,7 @@ VALID_EMBEDDING_Top_K = {3, 6, 9, 12}
 
 
 @router.post('/changeConfig', response_model=ConfigChangeResponse)
-async def change_config(request: ConfigRequest):
+async def change_config(request: ConfigRequest) -> ConfigChangeResponse:
     """Update backend configuration settings.
 
     Validates and applies changes to LLM model, transcription model,
@@ -48,7 +48,7 @@ async def change_config(request: ConfigRequest):
         request: ConfigRequest with the desired configuration changes.
 
     Returns:
-        ConfigChangeResponse with status confirmation.
+        ConfigChangeResponse: ConfigChangeResponse with status confirmation.
     """
     try:
         if request.selected_LLM not in VALID_MODELS:
@@ -97,11 +97,11 @@ async def change_config(request: ConfigRequest):
 
 
 @router.get('/getConfig', response_model=ConfigGetResponse)
-async def get_config():
+async def get_config() -> ConfigGetResponse:
     """Retrieve the current backend configuration.
 
     Returns:
-        ConfigGetResponse with the current settings.
+        ConfigGetResponse: ConfigGetResponse with the current settings.
     """
     return ConfigGetResponse(
         selected_LLM=settings.llm_model,

@@ -13,3 +13,5 @@ site/
 # system / user nonsense
 ~/
 .project_flow.md
+
+.env

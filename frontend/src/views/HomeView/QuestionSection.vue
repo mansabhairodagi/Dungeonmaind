@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * QuestionSection – allows the user to ask the LLM a question about the D&D session.
+ * Supports streaming text responses and optional rulebook search results.
+ */
 import { ref } from 'vue'
 import { SERVER_CONFIG } from '@/config/config'
 import { marked } from 'marked'

@@ -1,4 +1,9 @@
 <script setup lang="ts">
+/**
+ * HomeHeader – the top navigation bar showing the app title and
+ * leader-only buttons for config, rulebook, timeline, and session saving/exporting.
+ * Manages campaign/session selection, creation, and overwrite modals.
+ */
 import { ref } from 'vue'
 import { SERVER_CONFIG } from '@/config/config.ts'
 import { useSessionStore } from '@/stores/session.ts'

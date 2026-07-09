@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * RecordingSection – provides UI for starting/stopping microphone recording,
+ * checking voiceprint readiness, and showing recording status/timer.
+ */
 import { computed } from 'vue'
 import { useRecorderStore } from '@/stores/recorder.ts'
 import { useSessionStore } from '@/stores/session.ts'

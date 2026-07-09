@@ -1,19 +1,26 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import * as api from '@/api/playersAPI'
 import type { PlayerOut, Role, Hp, AbilityScores } from '@/api/playersAPI'
+import * as api from '@/api/playersAPI'
 
+/**
+ * Session store – manages current player identity, player roster,
+ * backend connection URL, local network IP, and WebSocket-based updates.
+ */
 export const useSessionStore = defineStore('session', () => {
-  /* State */
+  /** The locally-authenticated player (hydrated from sessionStorage). */
   const currentPlayer = ref<PlayerOut | null>(hydratePlayer())
+  /** Full list of known players (from backend + WebSocket). */
   const players = ref<PlayerOut[]>([])
+  /** The backend base URL (persisted in localStorage). */
   const backendUrl = ref<string | null>(hydrateBackendUrl())
+  /** Local network IP for QR-code / join-link sharing (persisted). */
   const localNetworkIP = ref<string | null>(hydrateLocalNetworkIP())
 
-  /* Getters */
+  /** Whether the current player has the `leader` role. */
   const isLeader = computed(() => currentPlayer.value?.role === 'leader')
 
-  /* Types for WS/patch upserts */
+  /** Partial player payload used for WebSocket / PATCH upserts. */
   type PlayerUpsert = Partial<Omit<PlayerOut, 'hp' | 'abilities'>> & {
     hp?: Partial<Hp>
     abilities?: Partial<AbilityScores> | Record<string, unknown>
@@ -21,7 +28,12 @@ export const useSessionStore = defineStore('session', () => {
 
   /* Internal helpers */
 
-  // Deep-merge hp and abilities; shallow-merge everything else
+  /**
+   * Deep-merge `hp` and `abilities` sub-objects; shallow-merge everything else.
+   * @param base - The existing player object.
+   * @param incoming - The partial update payload.
+   * @returns A new merged PlayerOut-like object.
+   */
   function mergePlayers(base: PlayerOut, incoming: PlayerUpsert): PlayerOut {
     return {
       ...base,
@@ -36,7 +48,11 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
-  // Accept full or partial PlayerOut-like payloads (must have id when partial)
+  /**
+   * Insert or update a player in the roster.
+   * Also syncs the current player if the ID matches.
+   * @param p - Full or partial PlayerOut (must include `id` when partial).
+   */
   function upsertPlayer(p: PlayerOut | (PlayerUpsert & { id: string })) {
     const i = players.value.findIndex((x) => x.id === p.id)
     if (i === -1) {
@@ -51,6 +67,10 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
+  /**
+   * Sync the local `currentPlayer` snapshot with a fresh server list.
+   * Removes the player if no longer present.
+   */
   function syncCurrentFromList(list: PlayerOut[]) {
     const id = currentPlayer.value?.id
     if (!id) return
@@ -64,6 +84,9 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
+  /**
+   * Persist or clear the current player in sessionStorage.
+   */
   function persistPlayer(p: PlayerOut | null) {
     try {
       if (p) {
@@ -76,6 +99,9 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
+  /**
+   * Persist the backend URL to localStorage.
+   */
   function persistBackendUrl(url: string) {
     try {
       localStorage.setItem('backendUrl', url)
@@ -84,6 +110,9 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
+  /**
+   * Persist or clear the local network IP in localStorage.
+   */
   function persistLocalNetworkIP(ip: string | null) {
     try {
       if (ip) {
@@ -96,6 +125,10 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
+  /**
+   * Read and parse the current player from sessionStorage.
+   * @returns The deserialized player or null.
+   */
   function hydratePlayer(): PlayerOut | null {
     try {
       const raw = sessionStorage.getItem('player')
@@ -105,6 +138,9 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
+  /**
+   * Read the persisted backend URL from localStorage.
+   */
   function hydrateBackendUrl(): string | null {
     try {
       return localStorage.getItem('backendUrl')
@@ -113,6 +149,9 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
+  /**
+   * Read the persisted local network IP from localStorage.
+   */
   function hydrateLocalNetworkIP(): string | null {
     try {
       const raw = localStorage.getItem('localNetworkIP')
@@ -122,6 +161,9 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
+  /**
+   * Remove the persisted player from sessionStorage.
+   */
   function removePersistedPlayer() {
     try {
       sessionStorage.removeItem('player')
@@ -130,6 +172,9 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
+  /**
+   * Clear all persisted session data (player, backend URL, IP).
+   */
   function clearPersist() {
     removePersistedPlayer()
     try {
@@ -142,6 +187,13 @@ export const useSessionStore = defineStore('session', () => {
 
   /* API actions */
 
+  /**
+   * Join the session as a new or existing (reuse_id) player.
+   * @param name - Display name.
+   * @param role - Leader or member.
+   * @param reuse_id - Optional ID to reactivate an inactive player.
+   * @returns The created/updated player from the backend.
+   */
   async function join(name: string, role: Role, reuse_id?: string) {
     const p = await api.join(name, role, reuse_id)
     currentPlayer.value = p
@@ -149,12 +201,18 @@ export const useSessionStore = defineStore('session', () => {
     return p
   }
 
+  /**
+   * Fetch the full player list from the backend and sync the current player.
+   */
   async function loadPlayers() {
     const list = await api.listPlayers()
     players.value = list
     syncCurrentFromList(list)
   }
 
+  /**
+   * Leave the session and clear all local state.
+   */
   async function leave() {
     if (!currentPlayer.value) return
     try {
@@ -164,16 +222,25 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
+  /**
+   * Overwrite the current player reference and persist it.
+   */
   function setCurrentPlayer(p: PlayerOut) {
     currentPlayer.value = p
     persistPlayer(p)
   }
 
+  /**
+   * Set the backend URL and persist it.
+   */
   function setBackendUrl(url: string) {
     backendUrl.value = url
     persistBackendUrl(url)
   }
 
+  /**
+   * Set the local network IP (or clear it) and persist.
+   */
   function setLocalNetworkIP(ip: string) {
     if (!ip) {
       localNetworkIP.value = null
@@ -186,6 +253,9 @@ export const useSessionStore = defineStore('session', () => {
 
   /* Session / logout helpers */
 
+  /**
+   * Clear all session state (current player, roster, connection info, storage).
+   */
   function clearSession() {
     currentPlayer.value = null
     players.value = []
@@ -194,17 +264,26 @@ export const useSessionStore = defineStore('session', () => {
     clearPersist()
   }
 
-  // Used e.g. when WS close code 4001 (kicked)
+  /**
+   * Force logout – clears session, used on WS close code 4001 (kicked) or connection loss.
+   */
   function forceLogout() {
     clearSession()
   }
 
   /* WebSocket helpers */
 
+  /**
+   * Handle a WS `join` message – upsert the joining player.
+   */
   function applyWsJoin(p: PlayerOut) {
     upsertPlayer(p)
   }
 
+  /**
+   * Handle a WS `leave` message – remove the player from the roster and
+   * clear the current player if they left.
+   */
   function applyWsLeave(id: string) {
     players.value = players.value.filter((pl) => pl.id !== id)
     if (currentPlayer.value?.id === id) {
@@ -213,11 +292,17 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
-  // Accept full or partial updates
+  /**
+   * Handle a WS `update` message – upsert the player with full or partial data.
+   */
   function applyWsUpdate(p: PlayerOut | (PlayerUpsert & { id: string })) {
     upsertPlayer(p)
   }
 
+  /**
+   * Apply a partial patch to a player in the local roster and to the current
+   * player snapshot if applicable. Does NOT send to the backend.
+   */
   function patchPlayer(id: string, patch: PlayerUpsert) {
     const i = players.value.findIndex((p) => p.id === id)
     if (i !== -1) {

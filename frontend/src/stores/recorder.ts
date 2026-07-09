@@ -3,6 +3,10 @@ import { ref, computed, type Ref } from 'vue'
 import { useSessionStore } from '@/stores/session'
 import { SERVER_CONFIG } from '@/config/config'
 
+/**
+ * Recorder store – manages microphone recording, audio chunk upload,
+ * transcription status, and audio playback for session recording.
+ */
 export const useRecorderStore = defineStore('recorder', () => {
   const micPermissionStatus = ref<string>('')
   const isRecording = ref<boolean>(false)
@@ -25,17 +29,27 @@ export const useRecorderStore = defineStore('recorder', () => {
 
   let cleanupDone = false
 
+  /**
+   * Resolve the backend base URL from the session store or fallback config.
+   */
   function baseUrl(): string {
     const session = useSessionStore()
     return session.backendUrl ?? SERVER_CONFIG.BASE_URL
   }
 
+  /**
+   * Build a full endpoint URL from a path relative to the backend base.
+   */
   function endpoint(path: string): string {
     const u = new URL(baseUrl())
     u.pathname = path.startsWith('/') ? path : `/${path}`
     return u.toString()
   }
 
+  /**
+   * Select the best supported audio MIME type for MediaRecorder.
+   * @returns The MIME type string, or undefined if none is supported.
+   */
   function pickMimeType(): string | undefined {
     const candidates = [
       'audio/ogg;codecs=opus',
@@ -47,6 +61,7 @@ export const useRecorderStore = defineStore('recorder', () => {
     return undefined
   }
 
+  /** Formatted recording time as MM:SS string. */
   const formattedRecordingTime = computed(() => {
     const elapsed = currentRecordingTime.value
     const seconds = Math.floor(elapsed / 1000)
@@ -56,6 +71,9 @@ export const useRecorderStore = defineStore('recorder', () => {
     return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`
   })
 
+  /**
+   * Start the recording elapsed-time timer.
+   */
   function startTimer() {
     //timer for recorded audio
     stopTimer()
@@ -72,6 +90,9 @@ export const useRecorderStore = defineStore('recorder', () => {
     }, 100)
   }
 
+  /**
+   * Stop the recording timer and record the final duration.
+   */
   function stopTimer() {
     if (timerInterval.value) {
       clearInterval(timerInterval.value)
@@ -84,12 +105,18 @@ export const useRecorderStore = defineStore('recorder', () => {
     }
   }
 
+  /**
+   * Reset the recording timer and duration to zero.
+   */
   function resetTimer() {
     stopTimer()
     currentRecordingTime.value = 0
     recordingDuration.value = 0
   }
 
+  /**
+   * Remove the `beforeunload` emergency shutdown handler.
+   */
   function cleanup() {
     //detach beforeunload handler(emergency cleanup) when recording starts
     if (cleanupDone) {
@@ -98,6 +125,10 @@ export const useRecorderStore = defineStore('recorder', () => {
     }
   }
 
+  /**
+   * Emergency stop – hard-stop the MediaRecorder and all audio tracks.
+   * Called on `beforeunload` or connection loss.
+   */
   function immediateShutdown() {
     // hard stop recorder if still active
     try {
@@ -115,6 +146,9 @@ export const useRecorderStore = defineStore('recorder', () => {
     stopTimer()
   }
 
+  /**
+   * Request microphone access and start recording audio in chunks.
+   */
   async function startRecording() {
     if (isRecording.value) return
     micPermissionStatus.value = ''
@@ -203,6 +237,10 @@ export const useRecorderStore = defineStore('recorder', () => {
     }
   }
 
+  /**
+   * Rotate the recording – request a data chunk then stop/restart the recorder
+   * to avoid very long single segments.
+   */
   function rotateRecording() {
     const mr = mediaRecorder.value
     if (!mr || mr.state !== 'recording' || isStopping.value) return
@@ -223,6 +261,10 @@ export const useRecorderStore = defineStore('recorder', () => {
     })
   }
 
+  /**
+   * Stop the recording – finalises the audio, sends the last chunk,
+   * and triggers transcription.
+   */
   function stopRecording() {
     if (!mediaRecorder.value || mediaRecorder.value.state === 'inactive' || isStopping.value) return
 
@@ -255,6 +297,11 @@ export const useRecorderStore = defineStore('recorder', () => {
     })
   }
 
+  /**
+   * Upload an audio chunk to the backend for transcription.
+   * @param chunk - The audio blob to send.
+   * @param isFinalSegment - Whether this is the last chunk (triggers transcription status).
+   */
   async function sendAudioChunk(chunk: Blob, isFinalSegment = false) {
     const form = new FormData()
     const fileExtension = chunk.type.split('/')[1]?.split(';')[0] || 'ogg'
@@ -288,6 +335,9 @@ export const useRecorderStore = defineStore('recorder', () => {
     }
   }
 
+  /**
+   * Play back the last recorded audio.
+   */
   function playRecording() {
     if (!recordedAudioURL.value) return
     if (!currentAudio.value) currentAudio.value = new Audio(recordedAudioURL.value)
@@ -299,6 +349,9 @@ export const useRecorderStore = defineStore('recorder', () => {
     })
   }
 
+  /**
+   * Clear the recorded audio preview to free object URL memory.
+   */
   function clearAudioPreview() {
     //clear recorded audio to free memory
     if (recordedAudioURL.value) {

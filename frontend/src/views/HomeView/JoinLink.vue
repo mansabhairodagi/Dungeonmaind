@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * JoinLink – displays the local network join URL for other players
+ * and a QR code modal for easy sharing (leader-only).
+ */
 import QrcodeVue from 'qrcode.vue'
 import { SERVER_CONFIG } from '@/config/config'
 import { useSessionStore } from '@/stores/session.ts'

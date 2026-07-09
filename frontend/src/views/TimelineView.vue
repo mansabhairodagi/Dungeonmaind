@@ -1,4 +1,9 @@
 <script setup lang="ts">
+/**
+ * TimelineView – displays session timeline events in a vertical timeline layout.
+ * Supports filtering by event type, viewing details in a modal,
+ * generating new events, and deleting individual or all events.
+ */
 import { onMounted, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTimelineStore } from '@/stores/timeline'

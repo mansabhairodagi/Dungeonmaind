@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * ConfigView – allows the leader to select LLM, transcription,
+ * and embedding models, and submit the changes to the backend.
+ */
 import { ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSessionStore } from '@/stores/session.ts'

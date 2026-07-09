@@ -1,4 +1,9 @@
 <script setup lang="ts">
+/**
+ * LoginView – the landing page where users set the backend URL,
+ * check connectivity, and join as a new or existing player.
+ * Leaders can also import saved sessions.
+ */
 import { ref, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { SERVER_CONFIG } from '@/config/config'
@@ -23,6 +28,13 @@ type JoinCheckOut = {
   candidate?: PlayerOut
 }
 
+/**
+ * Preflight join check: verify name availability, handle inactive-player reuse,
+ * then join the session.
+ * @param backendUrl - Backend server origin.
+ * @param name - Desired player name.
+ * @param role - Leader or member.
+ */
 async function preflightAndJoin(backendUrl: string, name: string, role: Role) {
   // 1) Preflight-Check
   console.debug(`preflightAndJoin: versuche mit ${name} zu joinen`)
@@ -139,6 +151,13 @@ watch(selectedNetworkIP, (newVal) => {
   }
 })
 
+/**
+ * Test backend connectivity by hitting the health endpoint.
+ * On success, persists the URL in the session store.
+ * @param backendUrl - The URL to test.
+ * @param timeoutMs - Abort timeout in milliseconds.
+ * @returns Whether the connection succeeded and any status/error.
+ */
 async function checkConnection(backendUrl: string, timeoutMs = 5000): Promise<CheckResult> {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs)

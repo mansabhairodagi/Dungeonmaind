@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * RulebookView – a file explorer for browsing and reading
+ * System Reference Document (SRD) markdown files served by the backend.
+ */
 import { computed, ref } from 'vue'
 import { SERVER_CONFIG } from '../config/config'
 import { marked } from 'marked'

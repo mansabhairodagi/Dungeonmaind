@@ -1,4 +1,9 @@
 <script setup lang="ts">
+/**
+ * HomeView – the main game dashboard. Manages the WebSocket connection,
+ * player roster sync, and renders sub-components for questions, recording,
+ * audio upload, and the right rail (dice, abilities, join link).
+ */
 import { onMounted, onUnmounted, onBeforeUnmount, ref } from 'vue'
 import { useSessionStore } from '@/stores/session.ts'
 import { useRouter } from 'vue-router'

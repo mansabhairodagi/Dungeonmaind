@@ -1,5 +1,9 @@
 import { useSessionStore } from '@/stores/session.ts'
-// Set the server and enpdoints
+
+/**
+ * Server configuration – base URL, local network IP, and all API endpoint paths.
+ * BASE_URL and LOCAL_NETWORK_IP are reactive getters that read from the session store.
+ */
 export const SERVER_CONFIG = {
   get BASE_URL() {
     const store = useSessionStore()
@@ -31,7 +35,7 @@ export const SERVER_CONFIG = {
   },
 }
 
-// Set the available LLM models
+/** Available LLM models for selection. */
 export const LLM_OPTIONS = [
   {
     value: 'hf.co/bartowski/mistralai_Ministral-3-3B-Instruct-2512-GGUF:Q5_K_M',
@@ -46,20 +50,20 @@ export const LLM_OPTIONS = [
   { value: 'hf.co/bartowski/microsoft_Phi-4-mini-instruct-GGUF:Q5_K_M', label: 'Phi4-3.8B' },
 ]
 
-// Set the default LLM model
+/** Default LLM model (first entry in LLM_OPTIONS). */
 export const DEFAULT_LLM = LLM_OPTIONS[0].value
 
-// Set the available transcription models
+/** Available transcription model sizes. */
 export const TRANSCRIPTION_MODELS = [
   { value: 'base', label: 'Base' },
   { value: 'medium', label: 'Medium' },
   { value: 'large-v3', label: 'Large' },
 ]
 
-// Set the default transcription model
+/** Default transcription model (first entry). */
 export const DEFAULT_TRANSCRIPTION_MODEL = TRANSCRIPTION_MODELS[0].value
 
-// Set the available embedding models
+/** Available embedding models. */
 export const EMBEDDING_MODELS = [
   { value: 'all-MiniLM-L6-v2', label: 'all-MiniLM-L6-v2' },
   { value: 'all-MiniLM-L12-v2', label: 'all-MiniLM-L12-v2' },
@@ -69,10 +73,10 @@ export const EMBEDDING_MODELS = [
   },
 ]
 
-// Set the default embedding model
+/** Default embedding model (first entry). */
 export const DEFAULT_EMBEDDING_MODEL = EMBEDDING_MODELS[0].value
 
-// Set the available embedding models
+/** Available top-K retrieval counts for embedding search. */
 export const EMBEDDING_TopK = [
   { value: '3', label: '3' },
   { value: '6', label: '6' },
@@ -80,5 +84,5 @@ export const EMBEDDING_TopK = [
   { value: '12', label: '12' },
 ]
 
-// Set the default embedding model
+/** Default embedding top-K value (second entry). */
 export const DEFAULT_EMBEDDING_TopK = EMBEDDING_TopK[1].value

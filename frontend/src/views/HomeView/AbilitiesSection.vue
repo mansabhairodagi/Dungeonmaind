@@ -1,4 +1,9 @@
 <script setup lang="ts">
+/**
+ * AbilitiesSection – displays ability scores, hit-points, and voiceprint management
+ * for each visible player. Leaders can edit abilities, apply damage/heal, kick players,
+ * and record voiceprints. Members see only their own stats.
+ */
 import { ref, computed } from 'vue'
 import {
   type PlayerOut,
@@ -135,6 +140,9 @@ async function heal(playerId: string, amount: number) {
   }
 }
 
+/**
+ * Clamp a number between min and max inclusive.
+ */
 function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n))
 }

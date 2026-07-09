@@ -7,6 +7,9 @@
 **/backend/data/chroma_db/
 **/backend/data/SavedSessions/
 
+# mkdocs build output
+site/
+
 # system / user nonsense
 ~/
 .project_flow.md

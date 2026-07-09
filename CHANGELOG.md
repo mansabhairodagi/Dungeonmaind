@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.0.1 — 2026-07-08
+## v0.0.1 — 2026-07-09
 
 ### Overview
 
@@ -66,6 +66,13 @@ a visual timeline in the frontend.
 - **Timeline route and navigation** (`frontend/src/router/index.ts`, `frontend/src/views/HomeView/HomeHeader.vue`)
   - `/timeline` route with authentication guard
   - Timeline button in the home header
+
+- **Auto-generated code documentation site** (`mkdocs.yml`, `docs/`)
+  - MkDocs site with Material theme, dark/light mode, and Mermaid diagrams
+  - Auto-generated backend API reference from Google-style docstrings (via mkdocstrings)
+  - JSDoc-style docstrings for all frontend TypeScript/Vue modules
+  - Architecture page with C4 system diagrams, sequence diagrams, and component trees
+  - Run locally with `mkdocs serve` from the project root
 
 - **Project documentation and CI/CD**
   - `README.md`: Added Quick Start (end-to-end run guide for manual and Docker setups)

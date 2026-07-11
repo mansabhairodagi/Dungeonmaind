@@ -373,7 +373,7 @@ onMounted(() => {
 .event-description {
   margin: 0 0 0.4rem;
   font-size: 0.85rem;
-  color: #b0a590;
+  color: #d4c9a8;
   line-height: 1.4;
 }
 

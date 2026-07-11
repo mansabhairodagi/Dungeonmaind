@@ -19,6 +19,7 @@ repos:
         files: \.(py|ts|vue|json|yaml|yml|md|toml)$
         exclude: ^backend/data/markdowns/
       - id: check-yaml
+        exclude: ^mkdocs\.yml$
 
   # ──────────────────────────────────────────────
   # Python: ruff (lint + format)

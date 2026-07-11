@@ -150,7 +150,7 @@ def extract_events_from_text(
             headers={'Content-Type': 'application/json'},
             method='POST',
         )
-        with urlopen(request, timeout=30.0) as response:
+        with urlopen(request, timeout=120.0) as response:
             response_json = json.loads(response.read().decode('utf-8'))
     except (HTTPError, URLError, TimeoutError, OSError, json.JSONDecodeError):
         return []

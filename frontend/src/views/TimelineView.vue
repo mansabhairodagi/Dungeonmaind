@@ -186,8 +186,10 @@ onMounted(() => {
         <button
           class="btn btn-danger"
           @click="
-            timelineStore.removeEvent(selectedEvent.id)
-            closeDetail()
+            () => {
+              timelineStore.removeEvent(selectedEvent.id)
+              closeDetail()
+            }
           "
         >
           Delete Event

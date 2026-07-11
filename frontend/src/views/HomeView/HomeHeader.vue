@@ -432,8 +432,10 @@ async function confirmDeletion() {
           <button
             class="btn-cancel"
             @click="
-              showNameModal = false
-              deselectSessionAndCampaign()
+              () => {
+                showNameModal = false
+                deselectSessionAndCampaign()
+              }
             "
           >
             Cancel
@@ -508,8 +510,10 @@ async function confirmDeletion() {
         <button
           class="btn-cancel"
           @click="
-            showCampaignSelectModal = false
-            deselectSessionAndCampaign()
+            () => {
+              showCampaignSelectModal = false
+              deselectSessionAndCampaign()
+            }
           "
         >
           Cancel

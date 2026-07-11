@@ -431,8 +431,10 @@ async function JoinExistingPlayer() {
             <button
               class="btn-cancel"
               @click="
-                showImportModal = false
-                deselectSession()
+                () => {
+                  showImportModal = false
+                  deselectSession()
+                }
               "
             >
               Cancel

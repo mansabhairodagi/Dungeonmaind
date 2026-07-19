@@ -58,6 +58,30 @@ Starts all three services (ollama, backend, frontend) at once.
 
 ---
 
+## Documentation Site (MkDocs)
+
+The project has a documentation site built with [MkDocs](https://www.mkdocs.org) (Material theme). It includes auto-generated API reference from docstrings, architecture diagrams, and guides.
+
+### First-time setup
+```bash
+pip install mkdocs mkdocs-material "mkdocstrings[python]" pymdown-extensions
+```
+
+### Serve locally
+```bash
+# From the project root
+mkdocs serve
+# Open http://localhost:8000
+```
+
+### Build static site
+```bash
+mkdocs build
+# Output in site/ directory
+```
+
+---
+
 ## Project Goal
 
 > DnD campaigns often span many sessions, making it difficult to remember details from past campaigns.

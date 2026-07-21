@@ -315,9 +315,18 @@ export const useRecorderStore = defineStore('recorder', () => {
       })
       if (!res.ok) {
         console.error('Chunk upload failed with status:', res.status)
+        let message = `Transcription failed. Server returned ${res.status}.`
+        try {
+          const errorBody = await res.json()
+          if (typeof errorBody.detail === 'string' && errorBody.detail.trim()) {
+            message = `Transcription failed: ${errorBody.detail}`
+          }
+        } catch (error) {
+          console.warn('Could not read transcription error response:', error)
+        }
 
         if (isFinalSegment) {
-          transcriptionStatus.value = 'Transcription failed.'
+          transcriptionStatus.value = message
           canExportSession.value = true
         }
         return

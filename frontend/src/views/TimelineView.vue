@@ -66,6 +66,12 @@ async function handleClear() {
   await timelineStore.clearEvents()
 }
 
+async function handleDeleteSelected() {
+  if (!selectedEvent.value) return
+  await timelineStore.removeEvent(selectedEvent.value.id)
+  closeDetail()
+}
+
 function goBack() {
   router.push({ name: 'home' })
 }
@@ -185,12 +191,7 @@ onMounted(() => {
         </div>
         <button
           class="btn btn-danger"
-          @click="
-            () => {
-              timelineStore.removeEvent(selectedEvent.id)
-              closeDetail()
-            }
-          "
+          @click="handleDeleteSelected"
         >
           Delete Event
         </button>

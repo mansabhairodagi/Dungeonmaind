@@ -12,7 +12,10 @@ from app.base_models.timeline_base_models import (
 )
 from app.domain.timeline_store import timeline_store
 from app.functions.embedding.embedding_model import get_all_transcription_documents
-from app.functions.llm.event_extractor import extract_events_from_transcriptions
+from app.functions.llm.event_extractor import (
+    build_timeline_events_from_transcription_documents,
+    extract_events_from_transcriptions,
+)
 
 router = APIRouter()
 
@@ -104,13 +107,15 @@ async def generate_events(req: TimelineGenerateRequest) -> TimelineGenerateRespo
             detail='No transcription documents found. Record and transcribe audio first.',
         )
 
-    texts = [doc.page_content for doc in docs]
-    speakers = [doc.metadata.get('player_id', 'unknown') for doc in docs]
+    events = build_timeline_events_from_transcription_documents(docs, session_id=req.session_id)
+    if not events:
+        texts = [doc.page_content for doc in docs]
+        speakers = [doc.metadata.get('player_id', 'unknown') for doc in docs]
+        events = extract_events_from_transcriptions(
+            texts=texts, speakers=speakers, session_id=req.session_id
+        )
 
-    events = extract_events_from_transcriptions(
-        texts=texts, speakers=speakers, session_id=req.session_id
-    )
-
+    await timeline_store.clear_session(req.session_id)
     added = await timeline_store.add_events(events)
 
     return TimelineGenerateResponse(

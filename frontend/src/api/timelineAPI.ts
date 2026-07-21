@@ -38,6 +38,19 @@ function base(): string {
   return SERVER_CONFIG.BASE_URL
 }
 
+async function throwTimelineError(res: Response): Promise<never> {
+  let message = `HTTP ${res.status}`
+  try {
+    const body = await res.json()
+    if (typeof body.detail === 'string' && body.detail.trim()) {
+      message = body.detail
+    }
+  } catch {
+    // Keep the HTTP status when the backend does not return JSON.
+  }
+  throw new Error(message)
+}
+
 /**
  * Fetch all timeline events for a given session.
  * @param sessionId - The session identifier (defaults to 'default').
@@ -46,7 +59,7 @@ export async function listEvents(sessionId = 'default'): Promise<TimelineEventLi
   const url = new URL('/timeline/events', base())
   url.searchParams.set('session_id', sessionId)
   const res = await fetch(url.toString())
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  if (!res.ok) await throwTimelineError(res)
   return (await res.json()) as TimelineEventListResponse
 }
 
@@ -56,7 +69,7 @@ export async function listEvents(sessionId = 'default'): Promise<TimelineEventLi
  */
 export async function getEvent(eventId: string): Promise<TimelineEventOut> {
   const res = await fetch(`${base()}/timeline/events/${encodeURIComponent(eventId)}`)
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  if (!res.ok) await throwTimelineError(res)
   return (await res.json()) as TimelineEventOut
 }
 
@@ -68,7 +81,7 @@ export async function deleteEvent(eventId: string): Promise<void> {
   const res = await fetch(`${base()}/timeline/events/${encodeURIComponent(eventId)}`, {
     method: 'DELETE',
   })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  if (!res.ok) await throwTimelineError(res)
 }
 
 /**
@@ -79,7 +92,7 @@ export async function clearSessionEvents(sessionId = 'default'): Promise<void> {
   const url = new URL('/timeline/events', base())
   url.searchParams.set('session_id', sessionId)
   const res = await fetch(url.toString(), { method: 'DELETE' })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  if (!res.ok) await throwTimelineError(res)
 }
 
 /**
@@ -92,6 +105,6 @@ export async function generateEvents(sessionId = 'default'): Promise<TimelineGen
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ session_id: sessionId }),
   })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  if (!res.ok) await throwTimelineError(res)
   return (await res.json()) as TimelineGenerateResponse
 }

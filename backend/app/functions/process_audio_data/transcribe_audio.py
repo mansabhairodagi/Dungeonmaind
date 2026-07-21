@@ -9,32 +9,75 @@
 #                   pip uninstall torch torchaudio
 #                   pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu128
 
-import lightning_fabric.utilities.cloud_io
-import torch
-
-# Patch lightning_fabric to always use weights_only=False
-_original_pl_load = lightning_fabric.utilities.cloud_io._load
-
-
-def _patched_pl_load(path_or_url, map_location=None, weights_only=None):
-    return _original_pl_load(path_or_url, map_location, weights_only=False)
-
-
-lightning_fabric.utilities.cloud_io._load = _patched_pl_load
-
 import os
 import tempfile
 from io import BytesIO
-
-import whisperx
-from pydub import AudioSegment
-from whisperx.diarize import DiarizationPipeline
+from pathlib import Path
+from typing import Any
+from uuid import uuid4
 
 from app.core.config import settings
 from app.domain.store import store
 from app.domain.timeline_store import timeline_store
 from app.functions.embedding.embedding_model import embedd_transcriptions
 from app.functions.llm.event_extractor import extract_events_from_transcriptions
+
+torch: Any = None
+whisperx: Any = None
+AudioSegment: Any = None
+DiarizationPipeline: Any = None
+
+model_dir = os.getenv('WHISPERX_MODELS_DIR', None)
+print('WHISPERX_MODELS_DIR:', os.getenv('WHISPERX_MODELS_DIR'))
+
+device = 'cpu'
+compute_type = 'int8'
+if model_dir is not None:
+    print('Warning: With Docker currently only CPU support is possible')
+
+print(
+    f'Transcription models will load on first transcription using device: {device} '
+    f'with compute type: {compute_type}'
+)
+
+# Use a dictionary to cache alignment models by language to avoid reloading.
+alignment_models_cache = {}
+transcription_model = None
+diarize_model = None
+
+
+def load_audio_dependencies() -> None:
+    """Import heavy audio libraries only when transcription is requested."""
+    global torch, whisperx, AudioSegment, DiarizationPipeline, device, compute_type
+
+    if whisperx is not None and torch is not None and AudioSegment is not None:
+        return
+
+    import lightning_fabric.utilities.cloud_io
+    import torch as torch_module
+    import whisperx as whisperx_module
+    from pydub import AudioSegment as AudioSegmentClass
+    from whisperx.diarize import DiarizationPipeline as DiarizationPipelineClass
+
+    original_pl_load = lightning_fabric.utilities.cloud_io._load
+
+    def patched_pl_load(path_or_url, map_location=None, weights_only=None):
+        return original_pl_load(path_or_url, map_location, weights_only=False)
+
+    lightning_fabric.utilities.cloud_io._load = patched_pl_load
+
+    torch = torch_module
+    whisperx = whisperx_module
+    AudioSegment = AudioSegmentClass
+    DiarizationPipeline = DiarizationPipelineClass
+
+    if model_dir is None:
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        compute_type = 'float16' if device == 'cuda' else 'int8'
+
+    if settings.ffmpeg_path:
+        AudioSegment.converter = settings.ffmpeg_path
+        AudioSegment.ffmpeg = settings.ffmpeg_path
 
 
 def load_transcription_model() -> object:
@@ -60,12 +103,16 @@ def reload_transcription_model():
     transcription_model = load_transcription_model()
 
 
-def load_diarize_model() -> DiarizationPipeline | None:
+def load_diarize_model() -> object | None:
     """Load the speaker diarization pipeline if HF_TOKEN is configured.
 
     Returns:
         DiarizationPipeline | None: DiarizationPipeline instance or None if unavailable.
     """
+    if not settings.enable_diarization:
+        print('Speaker diarization disabled by configuration.')
+        return None
+
     if not settings.hf_token:
         print('Warning: HF_TOKEN is not set. Speaker diarization disabled.')
         return None
@@ -79,33 +126,107 @@ def load_diarize_model() -> DiarizationPipeline | None:
         return None
 
 
-model_dir = os.getenv('WHISPERX_MODELS_DIR', None)
-print('WHISPERX_MODELS_DIR:', os.getenv('WHISPERX_MODELS_DIR'))
+def ensure_transcription_models_loaded() -> None:
+    """Load WhisperX models only when transcription is requested."""
+    global transcription_model, diarize_model
 
-if model_dir is None:
-    # Dev/local environment: auto-detect device
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    compute_type = 'float16' if device == 'cuda' else 'int8'
-else:
-    # Docker: CPU-only setup
-    device = 'cpu'
-    compute_type = 'int8'
-    print('Warning: With Docker currently only CPU support is possible')
+    load_audio_dependencies()
 
-print(
-    f'Loading transcription and alignment models on device: {device} with compute type: {compute_type}'
-)
+    if transcription_model is None:
+        print(
+            f'Loading transcription model on device: {device} with compute type: {compute_type}'
+        )
+        transcription_model = load_transcription_model()
 
-# Use a dictionary to cache alignment models by language to avoid reloading
-alignment_models_cache = {}
+    if diarize_model is None:
+        diarize_model = load_diarize_model()
 
-# 1. Load models
-transcription_model = load_transcription_model()
-diarize_model = load_diarize_model()
-if diarize_model is not None:
-    print('Models loaded successfully.')
-else:
-    print('Transcription model loaded (diarization disabled).')
+    if diarize_model is not None:
+        print('Models loaded successfully.')
+    else:
+        print('Transcription model loaded (diarization disabled).')
+
+
+
+async def _transcribe_raw_session_audio(
+    audio_bytes: bytes, file_extension: str, batch_size: int
+) -> list:
+    """Transcribe the uploaded session audio without pydub voiceprint prep."""
+    temp_audio_dir = Path(settings.backend_root_path) / 'data' / 'tmp_audio'
+    temp_audio_dir.mkdir(parents=True, exist_ok=True)
+    temp_audio_path = temp_audio_dir / f'upload_{uuid4().hex}.{file_extension}'
+    temp_audio_path.write_bytes(audio_bytes)
+
+    try:
+        print(f'Loading raw session audio from {temp_audio_path}...')
+        try:
+            audio = whisperx.load_audio(str(temp_audio_path))
+        except PermissionError as e:
+            raise RuntimeError(
+                f'Windows denied access while WhisperX was loading audio file {temp_audio_path}. '
+                'Close other backend processes, antivirus/file scanners may be locking the temp audio, '
+                'then try again.'
+            ) from e
+        except FileNotFoundError as e:
+            raise RuntimeError(
+                'WhisperX could not find ffmpeg/ffprobe or the temporary audio file while loading audio. '
+                f'Temporary audio path was {temp_audio_path}.'
+            ) from e
+
+        result = transcription_model.transcribe(audio, batch_size=batch_size)
+        language_code = result['language']
+        if language_code not in alignment_models_cache:
+            print(f'Loading alignment model for language: {language_code}...')
+            alignment_model, metadata = whisperx.load_align_model(
+                language_code=language_code, device=device
+            )
+            alignment_models_cache[language_code] = (alignment_model, metadata)
+        else:
+            print(f'Using cached alignment model for language: {language_code}.')
+            alignment_model, metadata = alignment_models_cache[language_code]
+
+        print('Aligning...')
+        result_aligned = whisperx.align(
+            result['segments'],
+            alignment_model,
+            metadata,
+            audio,
+            device,
+            return_char_alignments=False,
+        )
+
+        for segment in result_aligned.get('segments', []):
+            segment['player_name'] = segment.get('speaker', 'unknown')
+            segment['speaker'] = segment.get('speaker', 'unknown')
+
+        for seg in result_aligned.get('segments', []):
+            print(f'[{seg["start"]:.2f}s - {seg["end"]:.2f}s] {seg["speaker"]}: {seg["text"]}')
+
+        filtered_segments = result_aligned.get('segments', [])
+        texts = []
+        speakers = []
+
+        for seg in filtered_segments:
+            text = seg.get('text', '').strip()
+            if not text:
+                continue
+            texts.append(text)
+            speakers.append(seg.get('speaker', 'unknown'))
+
+        if texts:
+            embedd_transcriptions(embedding_text=texts, speakers=speakers)
+
+            events = extract_events_from_transcriptions(texts=texts, speakers=speakers)
+            if events:
+                await timeline_store.add_events(events)
+                print(f'Generated {len(events)} timeline events from transcription.')
+
+        return filtered_segments
+    finally:
+        try:
+            temp_audio_path.unlink(missing_ok=True)
+        except PermissionError:
+            print(f'Warning: Could not delete temporary audio file because it is locked: {temp_audio_path}')
 
 
 async def transcribe_audio(
@@ -125,6 +246,8 @@ async def transcribe_audio(
     Returns:
         list | None: List of filtered segments with speaker labels, or None on error.
     """
+    ensure_transcription_models_loaded()
+
     # Robust content type parsing and saving bytes to a temporary file
     file_extension_map = {'ogg': 'ogg', 'webm': 'webm', 'wav': 'wav', 'mpeg': 'mp3', 'mp4': 'mp4'}
     fileExtension = 'webm'
@@ -132,6 +255,9 @@ async def transcribe_audio(
         if key in content_type:
             fileExtension = file_extension_map[key]
             break
+
+    if not settings.enable_diarization:
+        return await _transcribe_raw_session_audio(audio_bytes, fileExtension, batch_size)
 
     players = await store.list_players()
     print(len(players))
@@ -266,7 +392,7 @@ async def transcribe_audio(
 
     except Exception as e:
         print(f'An error occurred during transcription: {e}')
-        return None
+        raise
 
     finally:
         # Clean up the temporary file

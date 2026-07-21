@@ -84,12 +84,24 @@ async def lifespan(app: FastAPI):
     # Rulebook embedding
     # Here check first if the rulebook embeddings are still present in the main db. If not for some reason we add them again. This will also happen
     # on the very first start up of the application
-    if not has_rulebook_embeddings():
-        texts, txt_paths = read_text_files()
-        embedd_rulebook(texts, txt_paths)
-        logging.info('Rulebook successfully embedded.')
-        print('Rulebook successfully embedded.')
-    delete_transcription_embeddings()
+    if settings.run_startup_embedding_maintenance:
+        try:
+            if not has_rulebook_embeddings():
+                texts, txt_paths = read_text_files()
+                embedd_rulebook(texts, txt_paths)
+                logging.info('Rulebook successfully embedded.')
+                print('Rulebook successfully embedded.')
+            delete_transcription_embeddings()
+        except Exception as e:
+            logging.warning(
+                'Startup embedding maintenance skipped because the embedding model or '
+                'ChromaDB was unavailable: %s',
+                e,
+            )
+            print(f'Warning: Startup embedding maintenance skipped: {e}')
+    else:
+        logging.info('Startup embedding maintenance disabled.')
+
     # Save original chroma_db path for shutdown
     chroma_db_path = settings.chroma_db_path
 

@@ -1,6 +1,7 @@
 """Extract timeline events from session transcriptions using an LLM."""
 
 import json
+import re
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -10,6 +11,7 @@ from app.functions.embedding.entity_extractor import (
     _dedupe_preserving_order,
     _extract_entities_with_local_llm,
 )
+from app.functions.llm.ollama_auth import ollama_headers
 
 EVENT_EXTRACTION_PROMPT = (
     'You are analyzing a Dungeons & Dragons session transcript. '
@@ -96,6 +98,96 @@ def _parse_event_type(raw: Any) -> TimelineEventType:
     return TimelineEventType.other
 
 
+def _split_metadata_entities(value: Any) -> list[str]:
+    """Split comma-separated Chroma metadata into clean entity strings."""
+    if isinstance(value, list):
+        raw_entities = value
+    elif isinstance(value, str):
+        raw_entities = value.split(',')
+    else:
+        raw_entities = []
+
+    return _dedupe_preserving_order(
+        entity.strip() for entity in raw_entities if isinstance(entity, str) and entity.strip()
+    )
+
+
+def _one_line_description(text: str, max_length: int = 180) -> str:
+    """Build a compact one-line description from transcript text."""
+    cleaned = ' '.join(text.strip().split())
+    if not cleaned:
+        return 'A session moment was recorded with extracted time and location clues.'
+
+    sentence_match = re.search(r'(.+?[.!?])(?:\s|$)', cleaned)
+    description = sentence_match.group(1) if sentence_match else cleaned
+    if len(description) <= max_length:
+        return description
+    return description[: max_length - 3].rstrip() + '...'
+
+
+def _timeline_title(temporal_entities: list[str], location_entities: list[str]) -> str:
+    """Create a readable timeline title from time and location entities."""
+    time_part = temporal_entities[0] if temporal_entities else 'Session moment'
+    if location_entities:
+        return f'{time_part} at {location_entities[0]}'
+    return time_part
+
+
+def _event_type_from_text(text: str) -> TimelineEventType:
+    """Infer a broad event type from transcript wording."""
+    lowered = text.lower()
+    if any(word in lowered for word in ('departed', 'traveled', 'travel', 'journey', 'reached', 'crossed', 'headed')):
+        return TimelineEventType.travel
+    if any(word in lowered for word in ('discovered', 'found', 'reported', 'scouts')):
+        return TimelineEventType.discovery
+    if any(word in lowered for word in ('messenger', 'letter', 'told', 'asked', 'said')):
+        return TimelineEventType.dialogue
+    if any(word in lowered for word in ('camp', 'rest', 'night')):
+        return TimelineEventType.rest
+    return TimelineEventType.other
+
+
+def build_timeline_events_from_transcription_documents(
+    docs: list[Any], session_id: str = 'default'
+) -> list[TimelineEvent]:
+    """Build timeline events directly from transcription metadata.
+
+    Args:
+        docs: Chroma transcription documents with metadata.
+        session_id: Session identifier.
+
+    Returns:
+        Timeline events containing temporal and location entities.
+    """
+    events: list[TimelineEvent] = []
+    for index, doc in enumerate(docs):
+        metadata = getattr(doc, 'metadata', {}) or {}
+        text = getattr(doc, 'page_content', '') or ''
+        temporal_entities = _split_metadata_entities(metadata.get('temporal_entities'))
+        location_entities = _split_metadata_entities(metadata.get('location_entities'))
+
+        if not temporal_entities and not location_entities:
+            continue
+
+        event = TimelineEvent(
+            id='',
+            session_id=session_id,
+            title=_timeline_title(temporal_entities, location_entities),
+            description=_one_line_description(text),
+            event_type=_event_type_from_text(text),
+            order=index,
+            timestamp=float(index),
+            transcription_chunk_id=f'chunk_{index}',
+            player_id=metadata.get('player_id'),
+            speaker_name=metadata.get('player_id'),
+            temporal_entities=temporal_entities,
+            location_entities=location_entities,
+        )
+        events.append(event)
+
+    return events
+
+
 def extract_events_from_text(
     text: str,
     session_id: str = 'default',
@@ -126,7 +218,7 @@ def extract_events_from_text(
         from app.core.config import settings
 
         llm_model = settings.llm_model
-        ollama_url = settings.ollama_url
+        ollama_url = settings.ollama_url.rstrip('/')
     except Exception:
         llm_model = 'hf.co/bartowski/mistralai_Ministral-3-3B-Instruct-2512-GGUF:Q5_K_M'
         ollama_url = 'http://localhost:11434'
@@ -147,7 +239,7 @@ def extract_events_from_text(
         request = Request(
             f'{ollama_url}/api/chat',
             data=json.dumps(payload).encode('utf-8'),
-            headers={'Content-Type': 'application/json'},
+            headers=ollama_headers(),
             method='POST',
         )
         with urlopen(request, timeout=120.0) as response:

@@ -35,9 +35,7 @@ def embedding_search(
 
     source_db = 'rulebook' if source else 'transcriptions'
 
-    embedding_model = SentenceTransformerEmbeddings(model_name=settings.embedding_model)
-
-    vectorstore = Chroma(persist_directory=persist_directory, embedding_function=embedding_model)
+    vectorstore = Chroma(persist_directory=persist_directory)
 
     # If rulebook search is active only use rulebook embeddings
     if source_db == 'rulebook':
@@ -76,9 +74,7 @@ def get_all_transcription_documents(persist_directory: str | None = None) -> lis
     if persist_directory is None:
         persist_directory = settings.chroma_db_path
 
-    embedding_model = SentenceTransformerEmbeddings(model_name=settings.embedding_model)
-
-    vectorstore = Chroma(persist_directory=persist_directory, embedding_function=embedding_model)
+    vectorstore = Chroma(persist_directory=persist_directory)
     entries = vectorstore._collection.get(
         where={'source': 'transcriptions'}, include=['documents', 'metadatas']
     )
@@ -333,12 +329,8 @@ def delete_chromadb(
         persist_directory = settings.chroma_db_path
 
     if forced_stop:
-        # Create vectorstore to get connection to the SQL client
-        embedding_model = SentenceTransformerEmbeddings(model_name=settings.embedding_model)
-
-        vectorstore = Chroma(
-            persist_directory=persist_directory, embedding_function=embedding_model
-        )
+        # Create vectorstore without embedding model to avoid network/model loading during shutdown.
+        vectorstore = Chroma(persist_directory=persist_directory)
         # Stops the SQLite client, which should break any lock the client has on the folder on windows
         vectorstore._client._system.stop()
         print('Stopped client')

@@ -6,6 +6,7 @@ from collections.abc import AsyncGenerator
 import httpx
 
 from app.core.config import settings
+from app.functions.llm.ollama_auth import ollama_headers
 
 
 async def run_custom_model(chat_history: list[dict]) -> AsyncGenerator[str, None]:
@@ -34,7 +35,12 @@ async def run_custom_model(chat_history: list[dict]) -> AsyncGenerator[str, None
     try:
         async with (
             httpx.AsyncClient(timeout=timeout) as client,
-            client.stream('POST', f'{settings.ollama_url}/api/chat', json=payload) as resp,
+            client.stream(
+                'POST',
+                f'{settings.ollama_url.rstrip("/")}/api/chat',
+                json=payload,
+                headers=ollama_headers(),
+            ) as resp,
         ):
             resp.raise_for_status()
 

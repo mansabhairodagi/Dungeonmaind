@@ -7,6 +7,8 @@ from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from app.functions.llm.ollama_auth import ollama_headers
+
 
 @dataclass(frozen=True)
 class ExtractedEntities:
@@ -972,7 +974,8 @@ def _extract_entities_with_local_llm(text: str, timeout_seconds: float = 25.0) -
         from app.core.config import settings
 
         llm_model = settings.llm_model
-        ollama_url = settings.ollama_url
+        ollama_url = settings.ollama_url.rstrip('/')
+        timeout_seconds = settings.entity_llm_timeout_seconds
     except Exception:
         llm_model = 'hf.co/bartowski/mistralai_Ministral-3-3B-Instruct-2512-GGUF:Q5_K_M'
         ollama_url = 'http://localhost:11434'
@@ -999,7 +1002,7 @@ def _extract_entities_with_local_llm(text: str, timeout_seconds: float = 25.0) -
         request = Request(
             f'{ollama_url}/api/chat',
             data=json.dumps(payload).encode('utf-8'),
-            headers={'Content-Type': 'application/json'},
+            headers=ollama_headers(),
             method='POST',
         )
         with urlopen(request, timeout=timeout_seconds) as response:

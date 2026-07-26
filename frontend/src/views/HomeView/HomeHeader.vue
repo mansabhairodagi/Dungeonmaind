@@ -5,6 +5,7 @@
  * Manages campaign/session selection, creation, and overwrite modals.
  */
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { SERVER_CONFIG } from '@/config/config.ts'
 import { useSessionStore } from '@/stores/session.ts'
 import { useRecorderStore } from '@/stores/recorder.ts'
@@ -23,9 +24,14 @@ interface CampaignsWithSessions {
   campaigns: Record<string, SessionList>
 }
 
+const router = useRouter()
 const store = useSessionStore()
 const recorder = useRecorderStore()
 const configStore = useConfigStore()
+
+function goToTimeline() {
+  router.push({ name: 'timeline' })
+}
 
 const showNameModal = ref(false)
 const sessionName = ref('')
@@ -409,7 +415,7 @@ async function confirmDeletion() {
     <h1>Dungeonmaind</h1>
     <div class="header-right">
       <button class="rulebook-button" @click="showRulebookModal = true">Rulebook</button>
-      <router-link to="/timeline" class="timeline-button">Timeline</router-link>
+      <button type="button" class="timeline-button" @click="goToTimeline">Timeline</button>
       <button v-if="store.isLeader" class="config-button" @click="openConfig">Config</button>
       <button
         v-if="store.isLeader"
@@ -621,6 +627,10 @@ async function confirmDeletion() {
   font-family: 'MedievalSharp', cursive;
   font-weight: normal;
   transition: background-color 0.3s ease;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
 }
 
 .rulebook-button:hover,

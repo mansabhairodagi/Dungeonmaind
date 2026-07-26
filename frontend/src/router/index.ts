@@ -80,8 +80,6 @@ router.beforeEach(async (to) => {
       }
     } catch (err) {
       console.error('Fehler beim Prüfen des Players:', err)
-      store.clearSession()
-      return { name: 'login' }
     }
   }
 

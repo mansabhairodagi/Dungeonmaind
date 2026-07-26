@@ -4,6 +4,8 @@ from uuid import UUID
 
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 
+from app.api.mappers.player_mapper import player_to_out
+from app.base_models.schemas import PlayerStatus
 from app.core.bus import bus
 from app.domain.store import store
 
@@ -30,8 +32,8 @@ async def ws_players(
     """
     await websocket.accept()
     try:
-        p = store.group.get_player(player_id)
-        print(f'WS connect: {p.id} status={p.status} role={p.role}')
+        player = await store.get_player(player_id)
+        print(f'WS connect: {player.id} status={player.status} role={player.role}')
     except ValueError:
         await websocket.close(code=4004, reason='invalid player_id')
         return
@@ -39,7 +41,17 @@ async def ws_players(
         await websocket.close(code=4004, reason='unknown player')
         return
 
+    reactivated = False
+    if player.status != PlayerStatus.active:
+        player = store.group.reactivate(player_id)
+        await store.save_player(player)
+        reactivated = True
+
     await bus.register(websocket, str(player_id), name, role)
+
+    if reactivated:
+        out = player_to_out(player)
+        await bus.publish({'type': 'join', 'player': out.model_dump()})
 
     try:
         while True:

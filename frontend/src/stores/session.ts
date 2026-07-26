@@ -69,7 +69,8 @@ export const useSessionStore = defineStore('session', () => {
 
   /**
    * Sync the local `currentPlayer` snapshot with a fresh server list.
-   * Removes the player if no longer present.
+   * Keeps the session when the player is temporarily inactive (e.g. after
+   * navigating away from Home and before the WebSocket reconnects).
    */
   function syncCurrentFromList(list: PlayerOut[]) {
     const id = currentPlayer.value?.id
@@ -78,9 +79,6 @@ export const useSessionStore = defineStore('session', () => {
     if (fresh) {
       currentPlayer.value = fresh
       persistPlayer(fresh)
-    } else {
-      currentPlayer.value = null
-      removePersistedPlayer()
     }
   }
 

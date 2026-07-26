@@ -10,6 +10,9 @@
 #                   pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu128
 
 import os
+
+os.environ['TORCH_FORCE_WEIGHTS_ONLY_LOAD'] = '0'
+
 import tempfile
 from io import BytesIO
 from pathlib import Path
@@ -55,6 +58,7 @@ def load_audio_dependencies() -> None:
 
     import lightning_fabric.utilities.cloud_io
     import torch as torch_module
+    torch_module.serialization._default_to_weights_only = lambda pickle_module: False
     import whisperx as whisperx_module
     from pydub import AudioSegment as AudioSegmentClass
     from whisperx.diarize import DiarizationPipeline as DiarizationPipelineClass
@@ -75,9 +79,10 @@ def load_audio_dependencies() -> None:
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         compute_type = 'float16' if device == 'cuda' else 'int8'
 
-    if settings.ffmpeg_path:
-        AudioSegment.converter = settings.ffmpeg_path
-        AudioSegment.ffmpeg = settings.ffmpeg_path
+    ffmpeg_path = getattr(settings, 'ffmpeg_path', None)
+    if ffmpeg_path:
+        AudioSegment.converter = ffmpeg_path
+        AudioSegment.ffmpeg = ffmpeg_path
 
 
 def load_transcription_model() -> object:
@@ -205,6 +210,7 @@ async def _transcribe_raw_session_audio(
         filtered_segments = result_aligned.get('segments', [])
         texts = []
         speakers = []
+        start_times = []
 
         for seg in filtered_segments:
             text = seg.get('text', '').strip()
@@ -212,11 +218,16 @@ async def _transcribe_raw_session_audio(
                 continue
             texts.append(text)
             speakers.append(seg.get('speaker', 'unknown'))
+            start_times.append(float(seg.get('start', 0.0)))
 
         if texts:
             embedd_transcriptions(embedding_text=texts, speakers=speakers)
 
-            events = extract_events_from_transcriptions(texts=texts, speakers=speakers)
+            events = extract_events_from_transcriptions(
+                texts=texts,
+                speakers=speakers,
+                chunk_start_times=start_times,
+            )
             if events:
                 await timeline_store.add_events(events)
                 print(f'Generated {len(events)} timeline events from transcription.')
@@ -368,6 +379,7 @@ async def transcribe_audio(
         # 7. Embed the resulting text
         texts = []
         speakers = []
+        start_times = []
 
         for seg in filtered_segments:
             text = seg.get('text', '').strip()
@@ -376,11 +388,16 @@ async def transcribe_audio(
 
             texts.append(text)
             speakers.append(seg.get('speaker', 'unknown'))
+            start_times.append(float(seg.get('start', 0.0)))
 
         if texts:
             embedd_transcriptions(embedding_text=texts, speakers=speakers)
 
-            events = extract_events_from_transcriptions(texts=texts, speakers=speakers)
+            events = extract_events_from_transcriptions(
+                texts=texts,
+                speakers=speakers,
+                chunk_start_times=start_times,
+            )
             if events:
                 await timeline_store.add_events(events)
                 print(f'Generated {len(events)} timeline events from transcription.')

@@ -39,8 +39,15 @@ const typeIcons: Record<string, string> = {
 }
 
 const filteredEvents = computed(() => {
-  if (!filterType.value) return timelineStore.events
-  return timelineStore.events.filter((e) => e.event_type === filterType.value)
+  const events = filterType.value
+    ? timelineStore.events.filter((e) => e.event_type === filterType.value)
+    : timelineStore.events
+
+  return [...events].sort((a, b) => {
+    const timestampDiff = (a.timestamp ?? 0) - (b.timestamp ?? 0)
+    if (timestampDiff !== 0) return timestampDiff
+    return (a.order ?? 0) - (b.order ?? 0)
+  })
 })
 
 const uniqueTypes = computed(() => {
@@ -74,6 +81,23 @@ async function handleDeleteSelected() {
 
 function goBack() {
   router.push({ name: 'home' })
+}
+
+function formatTimestamp(timestamp: number | undefined): string {
+  if (timestamp === undefined || timestamp === null) return ''
+  if (Number.isNaN(timestamp)) return ''
+
+  const minutes = Math.floor(timestamp / 60)
+  const seconds = Math.floor(timestamp % 60)
+  const hours = Math.floor(minutes / 60)
+  const displayMinutes = minutes % 60
+  const displaySeconds = seconds.toString().padStart(2, '0')
+
+  if (hours > 0) {
+    return `${hours}:${displayMinutes.toString().padStart(2, '0')}:${displaySeconds}`
+  }
+
+  return `${displayMinutes}:${displaySeconds}`
 }
 
 onMounted(() => {
@@ -116,6 +140,11 @@ onMounted(() => {
     </div>
 
     <template v-else>
+      <div class="timeline-summary">
+        <span class="summary-pill">{{ filteredEvents.length }} events</span>
+        <span class="summary-text">Chronological session highlights</span>
+      </div>
+
       <div class="filter-bar">
         <span class="filter-label">Filter:</span>
         <button :class="['filter-btn', { active: filterType === null }]" @click="filterType = null">
@@ -151,6 +180,9 @@ onMounted(() => {
             <h3 class="event-title">{{ event.title }}</h3>
             <p class="event-description">{{ event.description }}</p>
             <div class="event-meta">
+              <span v-if="event.timestamp !== undefined" class="meta-item">
+                {{ formatTimestamp(event.timestamp) }}
+              </span>
               <span v-if="event.speaker_name" class="meta-item">
                 {{ event.speaker_name }}
               </span>
@@ -286,6 +318,30 @@ onMounted(() => {
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+.timeline-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.summary-pill {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(52, 152, 219, 0.2);
+  color: #8ec5f1;
+  border: 1px solid rgba(52, 152, 219, 0.35);
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.8rem;
+}
+
+.summary-text {
+  color: #c8bfa9;
+  font-size: 0.9rem;
+}
+
 .filter-bar {
   display: flex;
   align-items: center;
@@ -353,6 +409,7 @@ onMounted(() => {
   border-radius: 8px;
   padding: 0.8rem 1rem;
   transition: background 0.2s;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .event-card:hover {

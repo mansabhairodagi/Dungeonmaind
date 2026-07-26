@@ -169,6 +169,12 @@ def build_timeline_events_from_transcription_documents(
         if not temporal_entities and not location_entities:
             continue
 
+        timestamp = metadata.get('start_time')
+        try:
+            timestamp_value = float(timestamp)
+        except (TypeError, ValueError):
+            timestamp_value = float(index)
+
         event = TimelineEvent(
             id='',
             session_id=session_id,
@@ -176,7 +182,7 @@ def build_timeline_events_from_transcription_documents(
             description=_one_line_description(text),
             event_type=_event_type_from_text(text),
             order=index,
-            timestamp=float(index),
+            timestamp=timestamp_value,
             transcription_chunk_id=f'chunk_{index}',
             player_id=metadata.get('player_id'),
             speaker_name=metadata.get('player_id'),
@@ -280,7 +286,10 @@ def extract_events_from_text(
 
 
 def extract_events_from_transcriptions(
-    texts: list[str], speakers: list[str] | None = None, session_id: str = 'default'
+    texts: list[str],
+    speakers: list[str] | None = None,
+    session_id: str = 'default',
+    chunk_start_times: list[float] | None = None,
 ) -> list[TimelineEvent]:
     """Extract timeline events from multiple transcription texts.
 
@@ -288,6 +297,7 @@ def extract_events_from_transcriptions(
         texts: List of transcription text chunks.
         speakers: Optional list of speaker names corresponding to texts.
         session_id: Session identifier (default 'default').
+        chunk_start_times: Optional start timestamps for each chunk in seconds.
 
     Returns:
         List of extracted TimelineEvent objects.
@@ -297,8 +307,15 @@ def extract_events_from_transcriptions(
         if not text.strip():
             continue
         speaker = speakers[i] if speakers and i < len(speakers) else None
+        chunk_start_time = 0.0
+        if chunk_start_times is not None and i < len(chunk_start_times):
+            chunk_start_time = float(chunk_start_times[i])
         events = extract_events_from_text(
-            text=text, session_id=session_id, chunk_index=i, speaker_name=speaker
+            text=text,
+            session_id=session_id,
+            chunk_index=i,
+            chunk_start_time=chunk_start_time,
+            speaker_name=speaker,
         )
         all_events.extend(events)
     return all_events

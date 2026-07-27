@@ -342,6 +342,7 @@ class TimelineEvent:
         speaker_name: Name of the speaker associated with the event.
         temporal_entities: List of time-related entities extracted from the event.
         location_entities: List of location entities extracted from the event.
+        characters: List of character or NPC names involved in the event.
         created_at: Timestamp when the event was created.
     """
 
@@ -357,6 +358,8 @@ class TimelineEvent:
     speaker_name: str | None = None
     temporal_entities: list[str] = field(default_factory=list)
     location_entities: list[str] = field(default_factory=list)
+    characters: list[str] = field(default_factory=list)
+    display_time: str | None = None
     created_at: datetime = field(default_factory=now_utc)
 
     def to_dict(self) -> dict:
@@ -378,6 +381,8 @@ class TimelineEvent:
             'speaker_name': self.speaker_name,
             'temporal_entities': self.temporal_entities,
             'location_entities': self.location_entities,
+            'characters': self.characters,
+            'display_time': self.display_time,
             'created_at': self.created_at.isoformat(),
         }
 
@@ -404,6 +409,8 @@ class TimelineEvent:
             speaker_name=data.get('speaker_name'),
             temporal_entities=data.get('temporal_entities', []),
             location_entities=data.get('location_entities', []),
+            characters=data.get('characters', []),
+            display_time=data.get('display_time'),
             created_at=datetime.fromisoformat(data['created_at'])
             if 'created_at' in data
             else now_utc(),

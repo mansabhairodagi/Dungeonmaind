@@ -1,6 +1,5 @@
 import unittest
 from types import SimpleNamespace
-from unittest.mock import patch
 
 from app.core.config import settings
 from app.functions.llm.event_extractor import build_timeline_events_from_transcription_documents
@@ -12,7 +11,24 @@ class TimelineEventExtractorTests(unittest.TestCase):
         self.assertTrue(hasattr(settings, 'ffmpeg_path'))
         self.assertIsNone(settings.ffmpeg_path)
 
-    def test_build_timeline_events_uses_metadata_timestamps(self):
+    def test_build_timeline_events_uses_clock_time_from_temporal_entities(self):
+        doc = SimpleNamespace(
+            page_content='They departed at 06:45 AM from Velmora Crossing.',
+            metadata={
+                'temporal_entities': ['06:45 AM', 'dawn'],
+                'location_entities': ['Velmora Crossing'],
+                'start_time': 125.5,
+            },
+        )
+
+        events = build_timeline_events_from_transcription_documents([doc], session_id='session-1')
+
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0].timestamp, '06:45 AM')
+        self.assertEqual(events[0].session_id, 'session-1')
+        self.assertTrue(events[0].title.lower().startswith('06:45 am'))
+
+    def test_build_timeline_events_falls_back_to_empty_timestamp(self):
         doc = SimpleNamespace(
             page_content='The party reached the hidden gate at dawn.',
             metadata={
@@ -25,7 +41,7 @@ class TimelineEventExtractorTests(unittest.TestCase):
         events = build_timeline_events_from_transcription_documents([doc], session_id='session-1')
 
         self.assertEqual(len(events), 1)
-        self.assertEqual(events[0].timestamp, 125.5)
+        self.assertEqual(events[0].timestamp, '')
         self.assertEqual(events[0].session_id, 'session-1')
         self.assertTrue(events[0].title.lower().startswith('dawn'))
 

@@ -30,12 +30,14 @@ class TimelineEventOut(BaseModel):
     description: str
     event_type: str
     order: int
-    timestamp: str = ''
+    timestamp: float = 0.0
     transcription_chunk_id: str | None = None
     player_id: str | None = None
     speaker_name: str | None = None
     temporal_entities: list[str] = Field(default_factory=list)
     location_entities: list[str] = Field(default_factory=list)
+    characters: list[str] = Field(default_factory=list)
+    display_time: str | None = None
     created_at: datetime
 
 

@@ -107,13 +107,14 @@ async def generate_events(req: TimelineGenerateRequest) -> TimelineGenerateRespo
             detail='No transcription documents found. Record and transcribe audio first.',
         )
 
-    events = build_timeline_events_from_transcription_documents(docs, session_id=req.session_id)
+    texts = [doc.page_content for doc in docs]
+    speakers = [doc.metadata.get('player_id', 'unknown') for doc in docs]
+    timestamps = [float(doc.metadata.get('start_time', 0.0)) for doc in docs]
+    events = extract_events_from_transcriptions(
+        texts=texts, speakers=speakers, timestamps=timestamps, session_id=req.session_id
+    )
     if not events:
-        texts = [doc.page_content for doc in docs]
-        speakers = [doc.metadata.get('player_id', 'unknown') for doc in docs]
-        events = extract_events_from_transcriptions(
-            texts=texts, speakers=speakers, session_id=req.session_id
-        )
+        events = build_timeline_events_from_transcription_documents(docs, session_id=req.session_id)
 
     await timeline_store.clear_session(req.session_id)
     added = await timeline_store.add_events(events)

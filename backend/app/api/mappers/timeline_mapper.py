@@ -26,5 +26,7 @@ def timeline_event_to_out(event: DomainTimelineEvent) -> TimelineEventOut:
         speaker_name=event.speaker_name,
         temporal_entities=list(event.temporal_entities),
         location_entities=list(event.location_entities),
+        characters=list(event.characters),
+        display_time=event.display_time,
         created_at=event.created_at,
     )

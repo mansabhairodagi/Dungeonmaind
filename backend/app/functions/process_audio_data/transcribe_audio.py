@@ -221,12 +221,14 @@ async def _transcribe_raw_session_audio(
             start_times.append(float(seg.get('start', 0.0)))
 
         if texts:
-            embedd_transcriptions(embedding_text=texts, speakers=speakers)
+            embedd_transcriptions(
+                embedding_text=texts, speakers=speakers, timestamps=start_times
+            )
 
             events = extract_events_from_transcriptions(
                 texts=texts,
                 speakers=speakers,
-                chunk_start_times=start_times,
+                timestamps=start_times,
             )
             if events:
                 await timeline_store.add_events(events)
@@ -391,12 +393,14 @@ async def transcribe_audio(
             start_times.append(float(seg.get('start', 0.0)))
 
         if texts:
-            embedd_transcriptions(embedding_text=texts, speakers=speakers)
+            embedd_transcriptions(
+                embedding_text=texts, speakers=speakers, timestamps=start_times
+            )
 
             events = extract_events_from_transcriptions(
                 texts=texts,
                 speakers=speakers,
-                chunk_start_times=start_times,
+                timestamps=start_times,
             )
             if events:
                 await timeline_store.add_events(events)

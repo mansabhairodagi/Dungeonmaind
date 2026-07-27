@@ -88,13 +88,17 @@ def get_all_transcription_documents(persist_directory: str | None = None) -> lis
 
 
 def embedd_transcriptions(
-    embedding_text: list[str], speakers: list[str], persist_directory: str | None = None
+    embedding_text: list[str],
+    speakers: list[str],
+    timestamps: list[float] | None = None,
+    persist_directory: str | None = None,
 ):
     """Embed transcription texts with speaker metadata into ChromaDB.
 
     Args:
         embedding_text (list[str]): List of text strings to embed.
         speakers: List of speaker names corresponding to each text.
+        timestamps: Optional list of audio start times (seconds) for each text.
         persist_directory (str | None): Optional custom ChromaDB path.
 
     Raises:
@@ -108,6 +112,10 @@ def embedd_transcriptions(
         raise ValueError(
             f'embedding_text ({len(embedding_text)}) and speakers ({len(speakers)}) must have the same length'
         )
+    if timestamps is not None and len(timestamps) != len(embedding_text):
+        raise ValueError(
+            f'timestamps ({len(timestamps)}) and embedding_text ({len(embedding_text)}) must have the same length'
+        )
 
     # Load embedding model locally
     embedding_model = SentenceTransformerEmbeddings(model_name=settings.embedding_model)
@@ -115,16 +123,19 @@ def embedd_transcriptions(
     documents = []
     for i, text in enumerate(embedding_text):
         entity_metadata = entities_as_metadata(text, use_llm=settings.entity_llm_fallback)
+        metadata = {
+            'source': 'transcriptions',
+            'player_id': speakers[i],
+            'session_id': 'none',  # Update here later
+            'path': 'none',
+            **entity_metadata,
+        }
+        if timestamps is not None:
+            metadata['start_time'] = float(timestamps[i])
         documents.append(
             Document(
                 page_content=text,
-                metadata={
-                    'source': 'transcriptions',
-                    'player_id': speakers[i],
-                    'session_id': 'none',  # Update here later
-                    'path': 'none',
-                    **entity_metadata,
-                },
+                metadata=metadata,
             )
         )
 

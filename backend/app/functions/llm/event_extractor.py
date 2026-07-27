@@ -112,6 +112,24 @@ def _split_metadata_entities(value: Any) -> list[str]:
     )
 
 
+def _extract_clock_time(temporal_entities: list[str]) -> str:
+    """Extract the first clock-time string from temporal entities.
+
+    Looks for patterns like '06:45 AM', '14:15', '6:00 PM' etc.
+
+    Args:
+        temporal_entities: List of temporal entity strings.
+
+    Returns:
+        The first matching clock-time string, or empty string if none found.
+    """
+    clock_pattern = re.compile(r'\b\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)?\b')
+    for entity in temporal_entities:
+        if clock_pattern.fullmatch(entity.strip()):
+            return entity.strip()
+    return ''
+
+
 def _one_line_description(text: str, max_length: int = 180) -> str:
     """Build a compact one-line description from transcript text."""
     cleaned = ' '.join(text.strip().split())
@@ -136,7 +154,10 @@ def _timeline_title(temporal_entities: list[str], location_entities: list[str]) 
 def _event_type_from_text(text: str) -> TimelineEventType:
     """Infer a broad event type from transcript wording."""
     lowered = text.lower()
-    if any(word in lowered for word in ('departed', 'traveled', 'travel', 'journey', 'reached', 'crossed', 'headed')):
+    if any(
+        word in lowered
+        for word in ('departed', 'traveled', 'travel', 'journey', 'reached', 'crossed', 'headed')
+    ):
         return TimelineEventType.travel
     if any(word in lowered for word in ('discovered', 'found', 'reported', 'scouts')):
         return TimelineEventType.discovery
@@ -169,11 +190,7 @@ def build_timeline_events_from_transcription_documents(
         if not temporal_entities and not location_entities:
             continue
 
-        timestamp = metadata.get('start_time')
-        try:
-            timestamp_value = float(timestamp)
-        except (TypeError, ValueError):
-            timestamp_value = float(index)
+        timestamp_value = _extract_clock_time(temporal_entities)
 
         event = TimelineEvent(
             id='',
@@ -266,6 +283,9 @@ def extract_events_from_text(
         if not title or not description:
             continue
 
+        temporal_entities_deduped = _dedupe_preserving_order(entities.temporal_entities)
+        timestamp_value = _extract_clock_time(temporal_entities_deduped)
+
         event = TimelineEvent(
             id='',
             session_id=session_id,
@@ -273,11 +293,11 @@ def extract_events_from_text(
             description=description,
             event_type=_parse_event_type(raw.get('event_type')),
             order=chunk_index + i,
-            timestamp=chunk_start_time,
+            timestamp=timestamp_value,
             transcription_chunk_id=f'chunk_{chunk_index}',
             player_id=player_id,
             speaker_name=speaker_name,
-            temporal_entities=_dedupe_preserving_order(entities.temporal_entities),
+            temporal_entities=temporal_entities_deduped,
             location_entities=_dedupe_preserving_order(entities.location_entities),
         )
         events.append(event)

@@ -11,7 +11,7 @@ export interface TimelineEventOut {
   description: string
   event_type: EventType
   order: number
-  timestamp: number
+  timestamp: string
   transcription_chunk_id: string | null
   player_id: string | null
   speaker_name: string | null

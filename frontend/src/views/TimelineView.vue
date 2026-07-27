@@ -70,13 +70,9 @@ const filteredEvents = computed(() => {
     }
 
     if (sortMode.value === 'reverse') {
-      const timestampDiff = (b.timestamp ?? 0) - (a.timestamp ?? 0)
-      if (timestampDiff !== 0) return timestampDiff
       return (b.order ?? 0) - (a.order ?? 0)
     }
 
-    const timestampDiff = (a.timestamp ?? 0) - (b.timestamp ?? 0)
-    if (timestampDiff !== 0) return timestampDiff
     return (a.order ?? 0) - (b.order ?? 0)
   })
 })
@@ -114,21 +110,9 @@ function goBack() {
   router.push({ name: 'home' })
 }
 
-function formatTimestamp(timestamp: number | undefined): string {
-  if (timestamp === undefined || timestamp === null) return ''
-  if (Number.isNaN(timestamp)) return ''
-
-  const minutes = Math.floor(timestamp / 60)
-  const seconds = Math.floor(timestamp % 60)
-  const hours = Math.floor(minutes / 60)
-  const displayMinutes = minutes % 60
-  const displaySeconds = seconds.toString().padStart(2, '0')
-
-  if (hours > 0) {
-    return `${hours}:${displayMinutes.toString().padStart(2, '0')}:${displaySeconds}`
-  }
-
-  return `${displayMinutes}:${displaySeconds}`
+function formatTimestamp(timestamp: string | undefined): string {
+  if (!timestamp) return ''
+  return timestamp
 }
 
 onMounted(() => {
@@ -173,7 +157,9 @@ onMounted(() => {
 
       <div v-else-if="timelineStore.events.length === 0" class="empty-state">
         <p>No timeline events yet.</p>
-        <p>Record and transcribe a session, then click "Generate Events" to populate the timeline.</p>
+        <p>
+          Record and transcribe a session, then click "Generate Events" to populate the timeline.
+        </p>
       </div>
 
       <template v-else>
@@ -181,7 +167,11 @@ onMounted(() => {
           <div class="toolbar">
             <label class="search-field">
               <span class="search-icon">🔎</span>
-              <input v-model="searchQuery" type="search" placeholder="Search events, speakers, places..." />
+              <input
+                v-model="searchQuery"
+                type="search"
+                placeholder="Search events, speakers, places..."
+              />
             </label>
             <label class="sort-field">
               <span>Sort</span>
@@ -195,7 +185,10 @@ onMounted(() => {
 
           <div class="filter-bar">
             <span class="filter-label">Filter:</span>
-            <button :class="['filter-btn', { active: filterType === null }]" @click="filterType = null">
+            <button
+              :class="['filter-btn', { active: filterType === null }]"
+              @click="filterType = null"
+            >
               All ({{ timelineStore.eventCount }})
             </button>
             <button
@@ -255,37 +248,32 @@ onMounted(() => {
         </div>
       </template>
 
-    <div v-if="showDetail && selectedEvent" class="modal-overlay" @click.self="closeDetail">
-      <div class="modal-content">
-        <button class="modal-close" @click="closeDetail">&times;</button>
-        <div
-          class="modal-type-badge"
-          :style="{ background: typeColors[selectedEvent.event_type] || '#95a5a6' }"
-        >
-          {{ selectedEvent.event_type }}
+      <div v-if="showDetail && selectedEvent" class="modal-overlay" @click.self="closeDetail">
+        <div class="modal-content">
+          <button class="modal-close" @click="closeDetail">&times;</button>
+          <div
+            class="modal-type-badge"
+            :style="{ background: typeColors[selectedEvent.event_type] || '#95a5a6' }"
+          >
+            {{ selectedEvent.event_type }}
+          </div>
+          <h2>{{ selectedEvent.title }}</h2>
+          <p class="modal-description">{{ selectedEvent.description }}</p>
+          <div class="modal-details">
+            <div v-if="selectedEvent.speaker_name" class="detail-row">
+              <strong>Speaker:</strong> {{ selectedEvent.speaker_name }}
+            </div>
+            <div v-if="selectedEvent.temporal_entities.length" class="detail-row">
+              <strong>Time:</strong> {{ selectedEvent.temporal_entities.join(', ') }}
+            </div>
+            <div v-if="selectedEvent.location_entities.length" class="detail-row">
+              <strong>Location:</strong> {{ selectedEvent.location_entities.join(', ') }}
+            </div>
+            <div class="detail-row"><strong>Order:</strong> #{{ selectedEvent.order }}</div>
+          </div>
+          <button class="btn btn-danger" @click="handleDeleteSelected">Delete Event</button>
         </div>
-        <h2>{{ selectedEvent.title }}</h2>
-        <p class="modal-description">{{ selectedEvent.description }}</p>
-        <div class="modal-details">
-          <div v-if="selectedEvent.speaker_name" class="detail-row">
-            <strong>Speaker:</strong> {{ selectedEvent.speaker_name }}
-          </div>
-          <div v-if="selectedEvent.temporal_entities.length" class="detail-row">
-            <strong>Time:</strong> {{ selectedEvent.temporal_entities.join(', ') }}
-          </div>
-          <div v-if="selectedEvent.location_entities.length" class="detail-row">
-            <strong>Location:</strong> {{ selectedEvent.location_entities.join(', ') }}
-          </div>
-          <div class="detail-row"><strong>Order:</strong> #{{ selectedEvent.order }}</div>
-        </div>
-        <button
-          class="btn btn-danger"
-          @click="handleDeleteSelected"
-        >
-          Delete Event
-        </button>
       </div>
-    </div>
     </div>
   </div>
 </template>
@@ -607,7 +595,9 @@ onMounted(() => {
   border: 1px solid #695710;
   border-radius: 10px;
   padding: 0.95rem 1rem;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
 }
 

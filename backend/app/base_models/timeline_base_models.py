@@ -30,7 +30,7 @@ class TimelineEventOut(BaseModel):
     description: str
     event_type: str
     order: int
-    timestamp: float = 0.0
+    timestamp: str = ''
     transcription_chunk_id: str | None = None
     player_id: str | None = None
     speaker_name: str | None = None

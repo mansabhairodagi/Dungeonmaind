@@ -351,7 +351,7 @@ class TimelineEvent:
     description: str
     event_type: TimelineEventType = field(default_factory=lambda: TimelineEventType.other)
     order: int = 0
-    timestamp: float = 0.0
+    timestamp: str = ''
     transcription_chunk_id: str | None = None
     player_id: str | None = None
     speaker_name: str | None = None
@@ -398,7 +398,7 @@ class TimelineEvent:
             description=data['description'],
             event_type=TimelineEventType(data.get('event_type', 'other')),
             order=data.get('order', 0),
-            timestamp=data.get('timestamp', 0.0),
+            timestamp=data.get('timestamp', ''),
             transcription_chunk_id=data.get('transcription_chunk_id'),
             player_id=data.get('player_id'),
             speaker_name=data.get('speaker_name'),

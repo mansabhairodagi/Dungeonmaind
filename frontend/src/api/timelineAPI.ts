@@ -11,12 +11,14 @@ export interface TimelineEventOut {
   description: string
   event_type: EventType
   order: number
-  timestamp: string
+  timestamp: number
   transcription_chunk_id: string | null
   player_id: string | null
   speaker_name: string | null
   temporal_entities: string[]
   location_entities: string[]
+  characters: string[]
+  display_time: string | null
   created_at: string
 }
 

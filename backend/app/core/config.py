@@ -49,6 +49,12 @@ class Settings(BaseSettings):
         description='URL for local Ollama LLM server',
     )
 
+    ollama_api_key: Optional[str] = Field(
+        default=None,
+        validation_alias='OLLAMA_API_KEY',
+        description='API key for authenticated Ollama endpoints',
+    )
+
     transcription_model: str = Field(
         default='base',
         validation_alias='TRANSCRIPTION_MODEL',

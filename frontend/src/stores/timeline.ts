@@ -51,7 +51,7 @@ export const useTimelineStore = defineStore('timeline', () => {
     error.value = null
     try {
       const response = await api.listEvents(sessionId)
-      events.value = response.events
+      events.value = response?.events ?? []
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to load events'
       events.value = []
@@ -66,11 +66,12 @@ export const useTimelineStore = defineStore('timeline', () => {
    * @returns The generate response or null on failure.
    */
   async function generateEvents(sessionId = 'default') {
+    if (generating.value) return
     generating.value = true
     error.value = null
     try {
       const response = await api.generateEvents(sessionId)
-      events.value = response.events
+      events.value = response?.events ?? []
       return response
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to generate events'

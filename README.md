@@ -18,33 +18,41 @@ All processing is performed locally. No audio, transcripts, or campaign data are
 ```bash
 git clone https://github.com/FNitzsche/Dungeonmaind.git
 cd Dungeonmaind
-python -m venv .venv && source .venv/bin/activate
+python -m venv .venv && source .venv/bin/activate   # Windows: .\.venv\Scripts\Activate.ps1
 pip install -r backend/requirements.txt
 cp backend/.env.example backend/.env
-# (Optional) Set HF_TOKEN in backend/.env for speaker diarization
+# (Optional) Set HF_TOKEN / OLLAMA_API_KEY / FFMPEG_PATH in backend/.env
 cd frontend && npm install && cd ..
 ```
 
-### 2. Start the backend
-```bash
-source .venv/bin/activate
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-```
-Open a **new terminal** for the next steps — the backend must keep running.
-
-### 3. Start Ollama (LLM)
+### 2. Start Ollama (LLM)
 ```bash
 ollama serve
 # In another terminal:
 ollama pull hf.co/bartowski/mistralai_Ministral-3-3B-Instruct-2512-GGUF:Q5_K_M
 ```
 
-### 4. Start the frontend
+### 3. Start the app (startup script)
 ```bash
+# macOS / Linux
+chmod +x start.sh && ./start.sh
+
+# Windows (PowerShell)
+.\start.ps1
+```
+This starts the backend (`:8000`) and frontend (`:5173`) together.
+
+### Manual start (optional)
+```bash
+# Terminal A — backend
+source .venv/bin/activate
+cd backend && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+# Terminal B — frontend
 cd frontend && npm run dev
 ```
 
-### 5. Open and use
+### 4. Open and use
 - Open **http://localhost:5173** in your browser.
 - Click **Check/Set Connection** (default URL `http://localhost:8000`).
 - Click **Join as new Player** → choose **Leader** (only on localhost) → enter your local network IP and name → **Join**.

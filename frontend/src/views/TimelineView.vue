@@ -54,6 +54,7 @@ const filteredEvents = computed(() => {
         event.speaker_name,
         event.temporal_entities.join(' '),
         event.location_entities.join(' '),
+        event.characters.join(' '),
         event.event_type,
       ]
         .filter(Boolean)
@@ -110,9 +111,16 @@ function goBack() {
   router.push({ name: 'home' })
 }
 
-function formatTimestamp(timestamp: string | undefined): string {
-  if (!timestamp) return ''
-  return timestamp
+function formatTimestamp(seconds: number): string | null {
+  if (!Number.isFinite(seconds) || seconds <= 0) return null
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  const secs = Math.floor(seconds % 60)
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+}
+
+function eventDisplayTime(event: TimelineEventOut): string {
+  return event.display_time ?? formatTimestamp(event.timestamp) ?? '—'
 }
 
 onMounted(() => {
@@ -220,6 +228,7 @@ onMounted(() => {
             >
               <div class="event-dot"></div>
               <div class="event-card">
+                <div class="event-time">{{ eventDisplayTime(event) }}</div>
                 <div
                   class="event-type-badge"
                   :style="{ background: typeColors[event.event_type] || '#95a5a6' }"
@@ -228,20 +237,6 @@ onMounted(() => {
                 </div>
                 <h3 class="event-title">{{ event.title }}</h3>
                 <p class="event-description">{{ event.description }}</p>
-                <div class="event-meta">
-                  <span v-if="event.timestamp !== undefined" class="meta-item">
-                    {{ formatTimestamp(event.timestamp) }}
-                  </span>
-                  <span v-if="event.speaker_name" class="meta-item">
-                    {{ event.speaker_name }}
-                  </span>
-                  <span v-if="event.temporal_entities.length" class="meta-item">
-                    {{ event.temporal_entities.join(', ') }}
-                  </span>
-                  <span v-if="event.location_entities.length" class="meta-item">
-                    {{ event.location_entities.join(', ') }}
-                  </span>
-                </div>
               </div>
             </div>
           </div>
@@ -257,17 +252,21 @@ onMounted(() => {
           >
             {{ selectedEvent.event_type }}
           </div>
+          <div class="modal-time">{{ eventDisplayTime(selectedEvent) }}</div>
           <h2>{{ selectedEvent.title }}</h2>
           <p class="modal-description">{{ selectedEvent.description }}</p>
           <div class="modal-details">
             <div v-if="selectedEvent.speaker_name" class="detail-row">
               <strong>Speaker:</strong> {{ selectedEvent.speaker_name }}
             </div>
-            <div v-if="selectedEvent.temporal_entities.length" class="detail-row">
-              <strong>Time:</strong> {{ selectedEvent.temporal_entities.join(', ') }}
-            </div>
             <div v-if="selectedEvent.location_entities.length" class="detail-row">
-              <strong>Location:</strong> {{ selectedEvent.location_entities.join(', ') }}
+              <strong>Locations:</strong> {{ selectedEvent.location_entities.join(', ') }}
+            </div>
+            <div v-if="selectedEvent.characters.length" class="detail-row">
+              <strong>Characters:</strong> {{ selectedEvent.characters.join(', ') }}
+            </div>
+            <div v-if="selectedEvent.temporal_entities.length" class="detail-row">
+              <strong>Time references:</strong> {{ selectedEvent.temporal_entities.join(', ') }}
             </div>
             <div class="detail-row"><strong>Order:</strong> #{{ selectedEvent.order }}</div>
           </div>
@@ -599,6 +598,9 @@ onMounted(() => {
     transform 0.2s ease,
     box-shadow 0.2s ease;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 .event-card:hover {
@@ -618,15 +620,26 @@ onMounted(() => {
   font-family: 'MedievalSharp', cursive;
 }
 
+.event-time {
+  font-size: 0.75rem;
+  color: #b45309;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+  font-family: 'MedievalSharp', cursive;
+}
+
 .event-title {
-  margin: 0 0 0.35rem;
+  margin: 0;
   font-size: 1rem;
+  font-weight: 700;
   color: #392401;
   font-family: 'MedievalSharp', cursive;
 }
 
 .event-description {
-  margin: 0 0 0.45rem;
+  margin: 0;
   font-size: 0.9rem;
   color: #4c3e06;
   line-height: 1.45;
@@ -696,6 +709,17 @@ onMounted(() => {
   margin-bottom: 0.55rem;
   font-weight: 700;
   text-transform: capitalize;
+  font-family: 'MedievalSharp', cursive;
+}
+
+.modal-time {
+  font-size: 0.8rem;
+  color: #b45309;
+  font-weight: 700;
+  margin-bottom: 0.45rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
   font-family: 'MedievalSharp', cursive;
 }
 

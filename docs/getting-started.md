@@ -1,14 +1,23 @@
 # Getting Started
 
-## Prerequisites
+## Recommended: Docker
+
+```bash
+cp backend/.env.example backend/.env
+docker compose up --build
+```
+
+Then open `http://localhost:5173`. See [Docker Deployment](docker.md) for details.
+
+## Prerequisites (local install)
 
 - Python 3.12+
 - Node.js 22+
-- Ollama (with a model like `llama3.2` or `mistral`)
+- Ollama (with a model like Ministral or Phi)
 - FFmpeg (for audio processing)
 - GPU recommended for WhisperX (CUDA)
 
-## Quick Start
+## Local Quick Start (without Docker)
 
 ### 1. Clone and set up backend
 
@@ -18,17 +27,13 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
-# Edit .env to set your HuggingFace token (required for WhisperX)
+# Edit .env to set your HuggingFace token if needed for diarization
 ```
 
 ### 2. Start Ollama
 
 ```bash
-# Using Docker
-docker compose up ollama -d
-
-# Or directly
-ollama pull llama3.2
+ollama pull hf.co/bartowski/mistralai_Ministral-3-3B-Instruct-2512-GGUF:Q5_K_M
 ollama serve
 ```
 
@@ -54,11 +59,3 @@ Navigate to `http://localhost:5173` in your browser.
 ## Configuration
 
 All configuration is done through the Settings page in the UI or via environment variables. See the [Configuration](configuration.md) page for details.
-
-## Docker Deployment
-
-```bash
-docker compose up --build
-```
-
-This starts all three services: frontend (Vite dev server), backend (FastAPI + Uvicorn), and Ollama (LLM).

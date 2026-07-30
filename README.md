@@ -8,61 +8,64 @@ All processing is performed locally. No audio, transcripts, or campaign data are
 
 ---
 
-## Quick Start — Run End-to-End
+## Quick Start — Docker (recommended)
 
 ### Prerequisites
-- Python 3.12, Node.js (LTS), ffmpeg (on PATH), Git
-- (Optional) NVIDIA GPU with CUDA 12.8+ for faster transcription
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (includes Compose)
+- Git
+- (Optional) NVIDIA GPU + Docker GPU support for faster transcription
 
-### 1. Clone and prepare
+### 1. Clone and prepare env
 ```bash
 git clone https://github.com/FNitzsche/Dungeonmaind.git
 cd Dungeonmaind
-python -m venv .venv && source .venv/bin/activate   # Windows: .\.venv\Scripts\Activate.ps1
-pip install -r backend/requirements.txt
 cp backend/.env.example backend/.env
-# (Optional) Set HF_TOKEN / OLLAMA_API_KEY / FFMPEG_PATH in backend/.env
-cd frontend && npm install && cd ..
+# Optional: set HF_TOKEN (diarization) or OLLAMA_API_KEY in backend/.env
 ```
 
-### 2. Start Ollama (LLM)
+### 2. Start the full stack
 ```bash
-ollama serve
-# In another terminal:
-ollama pull hf.co/bartowski/mistralai_Ministral-3-3B-Instruct-2512-GGUF:Q5_K_M
+docker compose up --build
 ```
+Starts **frontend**, **backend**, and **Ollama** together. First build can take a while (WhisperX / embedding models download in the backend image).
 
-### 3. Start the app (startup script)
-```bash
-# macOS / Linux
-chmod +x start.sh && ./start.sh
-
-# Windows (PowerShell)
-.\start.ps1
-```
-This starts the backend (`:8000`) and frontend (`:5173`) together.
-
-### Manual start (optional)
-```bash
-# Terminal A — backend
-source .venv/bin/activate
-cd backend && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-
-# Terminal B — frontend
-cd frontend && npm run dev
-```
-
-### 4. Open and use
-- Open **http://localhost:5173** in your browser.
+### 3. Open and use
+- Frontend: **http://localhost:5173**
+- Backend API: **http://localhost:8000**
+- Ollama: **http://localhost:11434**
 - Click **Check/Set Connection** (default URL `http://localhost:8000`).
 - Click **Join as new Player** → choose **Leader** (only on localhost) → enter your local network IP and name → **Join**.
 - Record a session, then ask questions or visit **/timeline** to see generated events.
 
-### Alternative: Docker
+### Useful Compose commands
 ```bash
-docker compose up
+docker compose up --build -d   # detached
+docker compose logs -f         # follow logs
+docker compose down            # stop
 ```
-Starts all three services (ollama, backend, frontend) at once.
+
+---
+
+## Alternative: local install (without Docker)
+
+### Prerequisites
+- Python 3.12, Node.js (LTS), ffmpeg (on PATH), Git, Ollama
+- (Optional) NVIDIA GPU with CUDA 12.8+ for faster transcription
+
+### Setup and start
+```bash
+python -m venv .venv && source .venv/bin/activate   # Windows: .\.venv\Scripts\Activate.ps1
+pip install -r backend/requirements.txt
+cp backend/.env.example backend/.env
+cd frontend && npm install && cd ..
+ollama serve
+# In another terminal:
+ollama pull hf.co/bartowski/mistralai_Ministral-3-3B-Instruct-2512-GGUF:Q5_K_M
+
+# Then start backend + frontend together:
+# macOS / Linux:  chmod +x start.sh && ./start.sh
+# Windows:        .\start.ps1
+```
 
 ---
 

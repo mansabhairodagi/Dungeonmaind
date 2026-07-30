@@ -2,35 +2,46 @@
 
 Recommended way to run Dungeon M-AI-nd for demos and releases.
 
+## One-command start
+
+```bash
+./start-docker.sh
+```
+
+Windows:
+
+```powershell
+.\start-docker.ps1
+```
+
+The script checks that Docker is running, creates `backend/.env` from `.env.example` when missing, then runs `docker compose up --build`.
+
+Pass through Compose flags as needed, for example:
+
+```bash
+./start-docker.sh --detach
+```
+
 ## Services
 
 The `docker-compose.yml` defines three services:
 
 | Service | Image | Port | Purpose |
 |---------|-------|------|---------|
-| `frontend` | Node (Vite) | `5173` | Vue 3 dev server |
+| `frontend` | Nginx (production build) | `5173` | Vue 3 web UI |
 | `backend` | Python 3.12 | `8000` | FastAPI + Uvicorn |
 | `ollama` | Ollama | `11434` | Local LLM server |
 
-## Usage
+The backend waits for Ollama to become healthy before starting.
+
+## Manual Compose commands
 
 ```bash
-# One-time: create env file (required by Compose)
-cp backend/.env.example backend/.env
-
-# Build and start all services
+cp backend/.env.example backend/.env   # only if you skip start-docker.sh
 docker compose up --build
-
-# Detached
 docker compose up --build -d
-
-# Build without cache
 docker compose build --no-cache
-
-# View logs
 docker compose logs -f
-
-# Stop all services
 docker compose down
 ```
 

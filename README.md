@@ -15,21 +15,18 @@ All processing is performed locally. No audio, transcripts, or campaign data are
 - Git
 - (Optional) NVIDIA GPU + Docker GPU support for faster transcription
 
-### 1. Clone and prepare env
+### 1. Clone and start
 ```bash
-git clone https://github.com/FNitzsche/Dungeonmaind.git
+git clone https://github.com/mansabhairodagi/Dungeonmaind.git
 cd Dungeonmaind
-cp backend/.env.example backend/.env
-# Optional: set HF_TOKEN (diarization) or OLLAMA_API_KEY in backend/.env
+chmod +x start-docker.sh   # macOS / Linux, first time only
+./start-docker.sh
 ```
+On Windows: `.\start-docker.ps1`
 
-### 2. Start the full stack
-```bash
-docker compose up --build
-```
-Starts **frontend**, **backend**, and **Ollama** together. First build can take a while (WhisperX / embedding models download in the backend image).
+The script creates `backend/.env` from `.env.example` if needed, then builds and starts **frontend**, **backend**, and **Ollama**. First build can take a while (WhisperX / embedding models download in the backend image).
 
-### 3. Open and use
+### 2. Open and use
 - Frontend: **http://localhost:5173**
 - Backend API: **http://localhost:8000**
 - Ollama: **http://localhost:11434**
@@ -39,9 +36,9 @@ Starts **frontend**, **backend**, and **Ollama** together. First build can take 
 
 ### Useful Compose commands
 ```bash
-docker compose up --build -d   # detached
-docker compose logs -f         # follow logs
-docker compose down            # stop
+./start-docker.sh --detach      # run in background (or .\start-docker.ps1 -Detached)
+docker compose logs -f          # follow logs
+docker compose down             # stop
 ```
 
 ---

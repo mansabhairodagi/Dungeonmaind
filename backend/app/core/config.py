@@ -1,7 +1,6 @@
 """Application configuration loaded from environment variables and .env file."""
 
 import os
-from typing import Optional
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -33,7 +32,7 @@ class Settings(BaseSettings):
     host: str = Field(default='0.0.0.0', validation_alias='HOST', description='Bind address')
     port: int = Field(default=8000, validation_alias='PORT', description='Listening port')
 
-    hf_token: Optional[str] = Field(
+    hf_token: str | None = Field(
         default=None, alias='HF_TOKEN', description='Hugging Face access token'
     )
 
@@ -49,7 +48,7 @@ class Settings(BaseSettings):
         description='URL for local Ollama LLM server',
     )
 
-    ollama_api_key: Optional[str] = Field(
+    ollama_api_key: str | None = Field(
         default=None,
         validation_alias='OLLAMA_API_KEY',
         description='API key for authenticated Ollama endpoints',
@@ -85,7 +84,7 @@ class Settings(BaseSettings):
         description='Enable speaker diarization during transcription',
     )
 
-    ffmpeg_path: Optional[str] = Field(
+    ffmpeg_path: str | None = Field(
         default=None,
         validation_alias='FFMPEG_PATH',
         description='Path to ffmpeg binary for audio processing',
@@ -108,7 +107,7 @@ class Settings(BaseSettings):
     # def chroma_db_path(self) -> str:
     #    return os.path.join(self.backend_root_path, "data", "chroma_db")
 
-    _chroma_db_path: Optional[str] = None
+    _chroma_db_path: str | None = None
 
     @property
     def chroma_db_path(self) -> str:

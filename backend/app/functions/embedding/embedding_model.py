@@ -132,12 +132,7 @@ def embedd_transcriptions(
         }
         if timestamps is not None:
             metadata['start_time'] = float(timestamps[i])
-        documents.append(
-            Document(
-                page_content=text,
-                metadata=metadata,
-            )
-        )
+        documents.append(Document(page_content=text, metadata=metadata))
 
     write_to_ChromaDB(persist_directory, documents, embedding_model)
 

@@ -32,10 +32,7 @@ class TimelineEventExtractorTests(unittest.TestCase):
     def test_build_timeline_events_falls_back_to_temporal_label_without_recording_time(self):
         doc = SimpleNamespace(
             page_content='The party reached the hidden gate at dawn.',
-            metadata={
-                'temporal_entities': ['dawn'],
-                'location_entities': ['the hidden gate'],
-            },
+            metadata={'temporal_entities': ['dawn'], 'location_entities': ['the hidden gate']},
         )
 
         events = build_timeline_events_from_transcription_documents([doc], session_id='session-1')

@@ -192,9 +192,7 @@ def _split_metadata_entities(value: Any) -> list[str]:
     )
 
 
-def _build_event_description(
-    text: str, location_entities: list[str], max_length: int = 200
-) -> str:
+def _build_event_description(text: str, location_entities: list[str], max_length: int = 200) -> str:
     """Build a concise event description with location context when missing."""
     cleaned = ' '.join(text.strip().split())
     if not cleaned:

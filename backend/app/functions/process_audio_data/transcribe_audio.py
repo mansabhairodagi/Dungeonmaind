@@ -58,6 +58,7 @@ def load_audio_dependencies() -> None:
 
     import lightning_fabric.utilities.cloud_io
     import torch as torch_module
+
     torch_module.serialization._default_to_weights_only = lambda pickle_module: False
     import whisperx as whisperx_module
     from pydub import AudioSegment as AudioSegmentClass
@@ -138,9 +139,7 @@ def ensure_transcription_models_loaded() -> None:
     load_audio_dependencies()
 
     if transcription_model is None:
-        print(
-            f'Loading transcription model on device: {device} with compute type: {compute_type}'
-        )
+        print(f'Loading transcription model on device: {device} with compute type: {compute_type}')
         transcription_model = load_transcription_model()
 
     if diarize_model is None:
@@ -150,7 +149,6 @@ def ensure_transcription_models_loaded() -> None:
         print('Models loaded successfully.')
     else:
         print('Transcription model loaded (diarization disabled).')
-
 
 
 async def _transcribe_raw_session_audio(
@@ -221,14 +219,10 @@ async def _transcribe_raw_session_audio(
             start_times.append(float(seg.get('start', 0.0)))
 
         if texts:
-            embedd_transcriptions(
-                embedding_text=texts, speakers=speakers, timestamps=start_times
-            )
+            embedd_transcriptions(embedding_text=texts, speakers=speakers, timestamps=start_times)
 
             events = extract_events_from_transcriptions(
-                texts=texts,
-                speakers=speakers,
-                timestamps=start_times,
+                texts=texts, speakers=speakers, timestamps=start_times
             )
             if events:
                 await timeline_store.add_events(events)
@@ -239,7 +233,9 @@ async def _transcribe_raw_session_audio(
         try:
             temp_audio_path.unlink(missing_ok=True)
         except PermissionError:
-            print(f'Warning: Could not delete temporary audio file because it is locked: {temp_audio_path}')
+            print(
+                f'Warning: Could not delete temporary audio file because it is locked: {temp_audio_path}'
+            )
 
 
 async def transcribe_audio(
@@ -393,14 +389,10 @@ async def transcribe_audio(
             start_times.append(float(seg.get('start', 0.0)))
 
         if texts:
-            embedd_transcriptions(
-                embedding_text=texts, speakers=speakers, timestamps=start_times
-            )
+            embedd_transcriptions(embedding_text=texts, speakers=speakers, timestamps=start_times)
 
             events = extract_events_from_transcriptions(
-                texts=texts,
-                speakers=speakers,
-                timestamps=start_times,
+                texts=texts, speakers=speakers, timestamps=start_times
             )
             if events:
                 await timeline_store.add_events(events)

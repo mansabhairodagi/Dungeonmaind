@@ -33,6 +33,10 @@ function goToTimeline() {
   router.push({ name: 'timeline' })
 }
 
+function goToMap() {
+  router.push({ name: 'map' })
+}
+
 const showNameModal = ref(false)
 const sessionName = ref('')
 const showCampaignSelectModal = ref(false)
@@ -416,6 +420,7 @@ async function confirmDeletion() {
     <div class="header-right">
       <button class="rulebook-button" @click="showRulebookModal = true">Rulebook</button>
       <button type="button" class="timeline-button" @click="goToTimeline">Timeline</button>
+      <button type="button" class="map-button" @click="goToMap">Map</button>
       <button v-if="store.isLeader" class="config-button" @click="openConfig">Config</button>
       <button
         v-if="store.isLeader"
@@ -616,6 +621,7 @@ async function confirmDeletion() {
 
 .rulebook-button,
 .timeline-button,
+.map-button,
 .config-button,
 .export-button {
   padding: 0.5rem 1rem;
@@ -635,6 +641,7 @@ async function confirmDeletion() {
 
 .rulebook-button:hover,
 .timeline-button:hover,
+.map-button:hover,
 .config-button:hover,
 .export-button:hover {
   background-color: #4a575e;
@@ -642,6 +649,7 @@ async function confirmDeletion() {
 
 .rulebook-button:disabled,
 .timeline-button:disabled,
+.map-button:disabled,
 .config-button:disabled,
 .export-button:disabled {
   opacity: 0.7;

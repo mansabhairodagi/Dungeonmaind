@@ -3,6 +3,7 @@
 **/.idea/
 **/.venv/
 **/.venv311/
+**/.venv312/
 **/.env.txt
 
 **/backend/data/chroma_db/

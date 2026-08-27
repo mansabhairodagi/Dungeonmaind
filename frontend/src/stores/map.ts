@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import * as mapApi from '@/api/mapAPI'
 import type { MapEdge, MapNode } from '@/api/mapAPI'
 import { useTimelineStore } from '@/stores/timeline'
-import { buildMapFromTimeline, placeToId, placesMatch } from '@/utils/mapFromTimeline'
+import { buildMapFromTimeline, locationBelongsToNode, placeToId } from '@/utils/mapFromTimeline'
 
 /** Whether the map graph came from the backend API or timeline fallback. */
 export type MapDataSource = 'api' | 'timeline'
@@ -89,7 +89,7 @@ export const useMapStore = defineStore('map', () => {
     const timelineStore = useTimelineStore()
     selectedEventIds.value = timelineStore.events
       .filter((event) =>
-        event.location_entities.some((location) => placesMatch(location, node.label)),
+        event.location_entities.some((location) => locationBelongsToNode(location, node)),
       )
       .map((event) => event.id)
   }
@@ -100,7 +100,7 @@ export const useMapStore = defineStore('map', () => {
     const query = placeQuery.trim()
     const byId = nodes.value.find((node) => node.id === query)
     if (byId) return byId.id
-    const byLabel = nodes.value.find((node) => placesMatch(node.label, query))
+    const byLabel = nodes.value.find((node) => locationBelongsToNode(query, node))
     return byLabel?.id ?? placeToId(query)
   }
 

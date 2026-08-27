@@ -7,6 +7,7 @@ export type MapEdgeType = 'traveled' | 'near' | 'north_of' | 'inside' | 'other'
 export interface MapNode {
   id: string
   label: string
+  aliases?: string[]
 }
 
 /** A connection between two places. */

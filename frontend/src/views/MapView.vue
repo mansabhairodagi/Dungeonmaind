@@ -242,6 +242,12 @@ watch(
             <div class="selected-place-card">
               <p class="sidebar-eyebrow">Selected place</p>
               <h3>{{ mapStore.selectedNode.label }}</h3>
+              <p
+                v-if="mapStore.selectedNode.aliases?.length"
+                class="sidebar-aliases"
+              >
+                Also known as: {{ mapStore.selectedNode.aliases.join(', ') }}
+              </p>
             </div>
 
             <div v-if="selectedEvents.length === 0" class="sidebar-empty">
@@ -317,6 +323,12 @@ watch(
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
+}
+
+.sidebar-aliases {
+  margin: 0.4rem 0 0;
+  color: #5c4a24;
+  font-size: 0.9rem;
 }
 
 .map-header h1,

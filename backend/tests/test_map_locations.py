@@ -2,7 +2,11 @@ import unittest
 
 from fastapi import HTTPException
 
-from app.api.routers.map import list_location_events, list_locations
+from app.api.routers.map import (
+    get_event_location,
+    list_location_events,
+    list_locations,
+)
 from app.domain.models import TimelineEvent
 from app.domain.timeline_store import timeline_store
 
@@ -78,6 +82,25 @@ class MapLocationsApiTests(unittest.IsolatedAsyncioTestCase):
 
         with self.assertRaises(HTTPException) as raised:
             await list_location_events(location_id='loc_99', session_id='sess-1')
+
+        self.assertEqual(raised.exception.status_code, 404)
+        self.assertEqual(raised.exception.detail, 'Location not found')
+
+    async def test_get_event_location_returns_the_place_that_lists_the_event(self) -> None:
+        await _seed_four_event_example()
+
+        payload = await get_event_location(event_id='evt_4', session_id='sess-1')
+
+        self.assertEqual(payload.id, 'loc_3')
+        self.assertEqual(payload.canonical_name, 'Ye Olde Tavern')
+        self.assertEqual(payload.aliases, ['the tavern'])
+        self.assertEqual(payload.event_ids, ['evt_3', 'evt_4'])
+
+    async def test_get_event_location_returns_404_when_event_has_no_place(self) -> None:
+        await _seed_four_event_example()
+
+        with self.assertRaises(HTTPException) as raised:
+            await get_event_location(event_id='evt_99', session_id='sess-1')
 
         self.assertEqual(raised.exception.status_code, 404)
         self.assertEqual(raised.exception.detail, 'Location not found')

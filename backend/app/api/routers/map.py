@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 
 from app.api.mappers.map_mapper import map_location_to_out
 from app.api.mappers.timeline_mapper import timeline_event_to_out
-from app.base_models.map_base_models import MapLocationListResponse
+from app.base_models.map_base_models import MapLocationListResponse, MapLocationOut
 from app.base_models.timeline_base_models import TimelineEventListResponse
 from app.domain.map_location import MapLocation
 from app.domain.models import TimelineEvent
@@ -89,3 +89,36 @@ async def list_location_events(
         events=[timeline_event_to_out(event) for event in linked],
         total=len(linked),
     )
+
+
+@router.get(
+    '/events/{event_id}/location',
+    response_model=MapLocationOut,
+)
+async def get_event_location(
+    event_id: str,
+    session_id: str = Query('default', description='Session identifier'),
+) -> MapLocationOut:
+    """Find the resolved map place linked to a timeline event.
+
+    Reverse of GET /locations/{location_id}/events: scans resolved
+    locations for the first whose event_ids contains this event.
+
+    Args:
+        event_id: Timeline event id (evt_4, ...).
+        session_id: Session identifier (default 'default').
+
+    Returns:
+        MapLocationOut for the matching place.
+
+    Raises:
+        HTTPException 404: If no location lists this event.
+    """
+    _, locations = await _session_events_and_locations(session_id)
+    location = next(
+        (item for item in locations if event_id in item.event_ids),
+        None,
+    )
+    if location is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail='Location not found')
+    return map_location_to_out(location)

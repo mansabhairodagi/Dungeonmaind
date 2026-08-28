@@ -10,6 +10,7 @@ unmerged (safe degradation).
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from typing import Any
 
 from app.domain.map_location import MapLocation
@@ -245,29 +246,30 @@ def resolve_location_entities(location_entities: list[str]) -> list[str]:
     return [_pick_canonical(cluster) for cluster in clusters]
 
 
-def resolve_map_locations(
-    events: list[Any], session_id: str | None = None
+def resolve_locations(
+    events: Sequence[Any], session_id: str | None = None
 ) -> list[MapLocation]:
-    """Resolve timeline event location strings into canonical MapLocation rows.
+    """Resolve an ordered session timeline into one MapLocation per place.
 
-    Near-duplicates such as 'Ye Olde Tavern' and 'the tavern' become one
-    location when the shorter name uniquely matches one longer name in
-    this session. If it could belong to two places, it is left unmerged.
+    Wires together place-name normalization, exact-match dedupe, and
+    alias-merge. Each location carries an ``event_ids`` index of every
+    timeline event that mentioned it (canonical name or alias), so later
+    lookup endpoints can read that list instead of scanning events again.
 
     Args:
-        events: Timeline-like objects with id, order, session_id, and
-            location_entities.
+        events: Ordered TimelineEvent list for one session (order is used
+            if the list is not already sorted).
         session_id: Optional session id override. Defaults to the first
             event's session_id, then 'default'.
 
     Returns:
-        Canonical MapLocation objects in first-seen cluster order.
+        One MapLocation per resolved place, in first-seen cluster order.
     """
-    mentions: list[tuple[str, str, int]] = []
+    ordered = sorted(events, key=lambda event: int(getattr(event, 'order', 0) or 0))
     resolved_session = session_id
-    for event in events:
-        event_id = str(getattr(event, 'id', '') or '')
-        order = int(getattr(event, 'order', 0) or 0)
+    names_in_order: list[str] = []
+
+    for event in ordered:
         if resolved_session is None:
             event_session = getattr(event, 'session_id', None)
             if event_session:
@@ -275,44 +277,54 @@ def resolve_map_locations(
         for raw in getattr(event, 'location_entities', None) or []:
             name = normalize_place_name(str(raw))
             if name:
-                mentions.append((name, event_id, order))
+                names_in_order.append(name)
 
-    if not mentions:
+    if not names_in_order:
         return []
 
     resolved_session = resolved_session or 'default'
-    clusters = _cluster_place_names([name for name, _event_id, _order in mentions])
+    clusters = _cluster_place_names(names_in_order)
+    name_to_index: dict[str, int] = {}
     locations: list[MapLocation] = []
 
-    for cluster in clusters:
+    for index, cluster in enumerate(clusters):
         canonical = _pick_canonical(cluster)
-        cluster_keys = {name.casefold() for name in cluster}
         aliases = [name for name in cluster if name.casefold() != canonical.casefold()]
-        event_ids: list[str] = []
-        seen_event_ids: set[str] = set()
-        mention_count = 0
-        first_order: int | None = None
-
-        for name, event_id, order in mentions:
-            if name.casefold() not in cluster_keys:
-                continue
-            mention_count += 1
-            if event_id and event_id not in seen_event_ids:
-                seen_event_ids.add(event_id)
-                event_ids.append(event_id)
-            if first_order is None or order < first_order:
-                first_order = order
-
+        for name in cluster:
+            name_to_index[name.casefold()] = index
         locations.append(
             MapLocation(
                 id=_place_to_id(canonical),
                 session_id=resolved_session,
                 canonical_name=canonical,
                 aliases=aliases,
-                event_ids=event_ids,
-                mention_count=mention_count,
-                first_order=first_order or 0,
             )
         )
 
+    for event in ordered:
+        event_id = str(getattr(event, 'id', '') or '')
+        order = int(getattr(event, 'order', 0) or 0)
+        credited: set[int] = set()
+        for raw in getattr(event, 'location_entities', None) or []:
+            name = normalize_place_name(str(raw))
+            if not name:
+                continue
+            index = name_to_index.get(name.casefold())
+            if index is None:
+                continue
+            location = locations[index]
+            location.mention_count += 1
+            if location.mention_count == 1:
+                location.first_order = order
+            if event_id and index not in credited:
+                credited.add(index)
+                location.event_ids.append(event_id)
+
     return locations
+
+
+def resolve_map_locations(
+    events: list[Any], session_id: str | None = None
+) -> list[MapLocation]:
+    """Backward-compatible alias for :func:`resolve_locations`."""
+    return resolve_locations(events, session_id=session_id)

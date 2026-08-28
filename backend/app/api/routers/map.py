@@ -122,3 +122,37 @@ async def get_event_location(
     if location is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail='Location not found')
     return map_location_to_out(location)
+
+
+@router.get(
+    '/events/{event_id}/locations',
+    response_model=MapLocationListResponse,
+)
+async def list_event_locations(
+    event_id: str,
+    session_id: str = Query('default', description='Session identifier'),
+) -> MapLocationListResponse:
+    """List resolved map places linked to a timeline event.
+
+    Reverse of GET /locations/{location_id}/events: returns every location
+    whose event_ids contains this event.
+
+    Args:
+        event_id: Timeline event id (evt_4, ...).
+        session_id: Session identifier (default 'default').
+
+    Returns:
+        MapLocationListResponse with the matching places.
+
+    Raises:
+        HTTPException 404: If no location lists this event.
+    """
+    _, locations = await _session_events_and_locations(session_id)
+    matched = [item for item in locations if event_id in item.event_ids]
+    if not matched:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail='Location not found')
+    return MapLocationListResponse(
+        session_id=session_id,
+        locations=[map_location_to_out(item) for item in matched],
+        total=len(matched),
+    )

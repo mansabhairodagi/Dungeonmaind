@@ -23,6 +23,7 @@ from app.api.routers import (
     export_import_session,
     health,
     llm,
+    map as map_router,
     players,
     process_audio_data,
     root,
@@ -51,6 +52,7 @@ all_routers = [
     (rulebook_markdown.router, '/rulebook', ['rulebook']),
     (export_import_session.router, '/exportImport', ['exportImport']),
     (timeline.router, '/timeline', ['timeline']),
+    (map_router.router, '/map', ['map']),
 ]
 
 # 192.168.x.x und beliebige localhost-Ports zulassen

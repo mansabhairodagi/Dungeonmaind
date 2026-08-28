@@ -78,6 +78,62 @@ class PlaceResolverTests(unittest.TestCase):
 
 
 class MapLocationResolverTests(unittest.TestCase):
+    def test_four_event_worked_example_resolves_three_canonical_places(self) -> None:
+        events = [
+            TimelineEvent(
+                id='evt_1',
+                session_id='sess-1',
+                title='Arrival at Crossing',
+                description='The party reaches Velmora Crossing.',
+                order=1,
+                location_entities=['Velmora Crossing'],
+            ),
+            TimelineEvent(
+                id='evt_2',
+                session_id='sess-1',
+                title='Camp at the lake',
+                description='They camp beside Silver Lake.',
+                order=2,
+                location_entities=['Silver Lake'],
+            ),
+            TimelineEvent(
+                id='evt_3',
+                session_id='sess-1',
+                title='Arrival',
+                description='The party enters Ye Olde Tavern.',
+                order=3,
+                location_entities=['Ye Olde Tavern'],
+            ),
+            TimelineEvent(
+                id='evt_4',
+                session_id='sess-1',
+                title='Asked around',
+                description='Rumors at the tavern.',
+                order=4,
+                location_entities=['the tavern'],
+            ),
+        ]
+
+        locations = resolve_locations(events)
+        by_id = {location.id: location for location in locations}
+        canonical_names = [location.canonical_name for location in locations]
+
+        self.assertEqual(len(locations), 3)
+        self.assertEqual(len(set(canonical_names)), 3)
+        self.assertEqual(list(by_id), ['loc_1', 'loc_2', 'loc_3'])
+
+        self.assertEqual(by_id['loc_1'].canonical_name, 'Velmora Crossing')
+        self.assertEqual(by_id['loc_1'].aliases, [])
+        self.assertEqual(by_id['loc_1'].event_ids, ['evt_1'])
+
+        self.assertEqual(by_id['loc_2'].canonical_name, 'Silver Lake')
+        self.assertEqual(by_id['loc_2'].aliases, [])
+        self.assertEqual(by_id['loc_2'].event_ids, ['evt_2'])
+
+        self.assertEqual(by_id['loc_3'].canonical_name, 'Ye Olde Tavern')
+        self.assertEqual(by_id['loc_3'].aliases, ['the tavern'])
+        self.assertEqual(by_id['loc_3'].event_ids, ['evt_3', 'evt_4'])
+
     def test_evt3_and_evt4_resolve_to_one_map_location(self) -> None:
         events = [
             _event('evt_3', ['Ye Olde Tavern'], order=3),
@@ -94,7 +150,7 @@ class MapLocationResolverTests(unittest.TestCase):
         self.assertEqual(location.mention_count, 2)
         self.assertEqual(location.first_order, 3)
         self.assertEqual(location.session_id, 'sess-1')
-        self.assertEqual(location.id, 'ye-olde-tavern')
+        self.assertEqual(location.id, 'loc_1')
 
     def test_unique_short_name_merges_into_the_only_matching_place(self) -> None:
         events = [
@@ -162,7 +218,7 @@ class MapLocationResolverTests(unittest.TestCase):
 
         self.assertEqual(len(locations), 1)
         self.assertEqual(locations[0].first_order, 3)
-        self.assertEqual(by_id['ye-olde-tavern'], ['evt_3', 'evt_4'])
+        self.assertEqual(by_id['loc_1'], ['evt_3', 'evt_4'])
 
     def test_resolve_locations_records_an_event_once_when_it_mentions_aliases(self) -> None:
         events = [_event('evt_3', ['Ye Olde Tavern', 'the tavern'], order=3)]

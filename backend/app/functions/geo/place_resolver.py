@@ -9,7 +9,6 @@ unmerged (safe degradation).
 
 from __future__ import annotations
 
-import re
 from collections.abc import Sequence
 from typing import Any
 
@@ -227,12 +226,6 @@ def _cluster_place_names(names: list[str]) -> list[list[str]]:
     return ordered
 
 
-def _place_to_id(label: str) -> str:
-    """Build a stable location id from a canonical display name."""
-    slug = re.sub(r'[^a-z0-9]+', '-', label.casefold()).strip('-')
-    return slug or 'unknown-place'
-
-
 def resolve_location_entities(location_entities: list[str]) -> list[str]:
     """Normalize, exact-dedupe, and merge near-duplicate place names.
 
@@ -294,7 +287,7 @@ def resolve_locations(
             name_to_index[name.casefold()] = index
         locations.append(
             MapLocation(
-                id=_place_to_id(canonical),
+                id=f'loc_{index + 1}',
                 session_id=resolved_session,
                 canonical_name=canonical,
                 aliases=aliases,

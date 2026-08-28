@@ -65,10 +65,20 @@ class MapLocationsRouterTests(unittest.IsolatedAsyncioTestCase):
             ['loc_1', 'loc_2', 'loc_3'],
         )
         self.assertEqual(payload.locations[0].canonical_name, 'Velmora Crossing')
+        self.assertEqual(payload.locations[0].aliases, [])
+        self.assertEqual(payload.locations[0].event_ids, ['evt_1'])
+        self.assertEqual(payload.locations[0].mention_count, 1)
+        self.assertEqual(payload.locations[0].first_order, 0)
         self.assertEqual(payload.locations[1].canonical_name, 'Silver Lake')
+        self.assertEqual(payload.locations[1].aliases, [])
+        self.assertEqual(payload.locations[1].event_ids, ['evt_2'])
+        self.assertEqual(payload.locations[1].mention_count, 1)
+        self.assertEqual(payload.locations[1].first_order, 1)
         self.assertEqual(payload.locations[2].canonical_name, 'Ye Olde Tavern')
         self.assertEqual(payload.locations[2].aliases, ['the tavern'])
         self.assertEqual(payload.locations[2].event_ids, ['evt_3', 'evt_4'])
+        self.assertEqual(payload.locations[2].mention_count, 2)
+        self.assertEqual(payload.locations[2].first_order, 2)
         self._assert_location_contract(payload.locations)
 
     async def test_get_location_events_matches_worked_example_contract(self) -> None:
@@ -102,6 +112,52 @@ class MapLocationsRouterTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(payload.locations[0].event_ids, ['evt_3', 'evt_4'])
         self._assert_location_contract(payload.locations)
 
+    async def test_get_location_events_for_loc_1_returns_only_evt_1(self) -> None:
+        response = await self.client.get(
+            '/map/locations/loc_1/events', params={'session_id': SESSION_ID}
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = TimelineEventListResponse.model_validate(response.json())
+        self.assertEqual([event.id for event in payload.events], ['evt_1'])
+
+    async def test_get_event_locations_for_evt_1_returns_loc_1(self) -> None:
+        response = await self.client.get(
+            '/map/events/evt_1/locations', params={'session_id': SESSION_ID}
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = MapLocationListResponse.model_validate(response.json())
+        self.assertEqual([location.id for location in payload.locations], ['loc_1'])
+        self.assertEqual(payload.locations[0].canonical_name, 'Velmora Crossing')
+
+    async def test_get_location_events_returns_404_for_unknown_place(self) -> None:
+        response = await self.client.get(
+            '/map/locations/loc_99/events', params={'session_id': SESSION_ID}
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.json()['detail'], 'Location not found')
+
+    async def test_get_event_locations_returns_404_when_event_has_no_place(self) -> None:
+        response = await self.client.get(
+            '/map/events/evt_99/locations', params={'session_id': SESSION_ID}
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.json()['detail'], 'Location not found')
+
+    async def test_get_map_locations_returns_empty_list_for_unknown_session(self) -> None:
+        response = await self.client.get(
+            '/map/locations', params={'session_id': 'missing'}
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = MapLocationListResponse.model_validate(response.json())
+        self.assertEqual(payload.session_id, 'missing')
+        self.assertEqual(payload.locations, [])
+        self.assertEqual(payload.total, 0)
+
     def _assert_location_contract(self, locations: list[MapLocationOut]) -> None:
         for location in locations:
             self.assertTrue(location.id)
@@ -110,7 +166,7 @@ class MapLocationsRouterTests(unittest.IsolatedAsyncioTestCase):
             self.assertIsInstance(location.aliases, list)
             self.assertIsInstance(location.event_ids, list)
             self.assertGreaterEqual(location.mention_count, 1)
-            self.assertGreaterEqual(location.first_order, 1)
+            self.assertGreaterEqual(location.first_order, 0)
 
     def _assert_event_contract(self, events: list[TimelineEventOut]) -> None:
         for event in events:

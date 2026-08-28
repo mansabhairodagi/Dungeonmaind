@@ -46,6 +46,16 @@ class PlaceResolverTests(unittest.TestCase):
             ['Ye Olde Tavern'],
         )
 
+    def test_resolve_location_entities_normalizes_casing_and_whitespace_before_dedupe(
+        self,
+    ) -> None:
+        self.assertEqual(
+            resolve_location_entities(
+                ['  Ye   Olde Tavern ', 'ye olde tavern', '  THE   tavern  ']
+            ),
+            ['Ye Olde Tavern'],
+        )
+
     def test_resolve_location_entities_keeps_longer_name_when_short_name_comes_first(self) -> None:
         self.assertEqual(
             resolve_location_entities(['the tavern', 'Ye Olde Tavern']),
@@ -125,14 +135,20 @@ class MapLocationResolverTests(unittest.TestCase):
         self.assertEqual(by_id['loc_1'].canonical_name, 'Velmora Crossing')
         self.assertEqual(by_id['loc_1'].aliases, [])
         self.assertEqual(by_id['loc_1'].event_ids, ['evt_1'])
+        self.assertEqual(by_id['loc_1'].mention_count, 1)
+        self.assertEqual(by_id['loc_1'].first_order, 0)
 
         self.assertEqual(by_id['loc_2'].canonical_name, 'Silver Lake')
         self.assertEqual(by_id['loc_2'].aliases, [])
         self.assertEqual(by_id['loc_2'].event_ids, ['evt_2'])
+        self.assertEqual(by_id['loc_2'].mention_count, 1)
+        self.assertEqual(by_id['loc_2'].first_order, 1)
 
         self.assertEqual(by_id['loc_3'].canonical_name, 'Ye Olde Tavern')
         self.assertEqual(by_id['loc_3'].aliases, ['the tavern'])
         self.assertEqual(by_id['loc_3'].event_ids, ['evt_3', 'evt_4'])
+        self.assertEqual(by_id['loc_3'].mention_count, 2)
+        self.assertEqual(by_id['loc_3'].first_order, 2)
 
     def test_evt3_and_evt4_resolve_to_one_map_location(self) -> None:
         events = [
@@ -148,7 +164,7 @@ class MapLocationResolverTests(unittest.TestCase):
         self.assertEqual(location.aliases, ['the tavern'])
         self.assertEqual(location.event_ids, ['evt_3', 'evt_4'])
         self.assertEqual(location.mention_count, 2)
-        self.assertEqual(location.first_order, 3)
+        self.assertEqual(location.first_order, 0)
         self.assertEqual(location.session_id, 'sess-1')
         self.assertEqual(location.id, 'loc_1')
 
@@ -217,7 +233,7 @@ class MapLocationResolverTests(unittest.TestCase):
         by_id = {location.id: location.event_ids for location in locations}
 
         self.assertEqual(len(locations), 1)
-        self.assertEqual(locations[0].first_order, 3)
+        self.assertEqual(locations[0].first_order, 0)
         self.assertEqual(by_id['loc_1'], ['evt_3', 'evt_4'])
 
     def test_resolve_locations_records_an_event_once_when_it_mentions_aliases(self) -> None:

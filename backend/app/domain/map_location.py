@@ -16,7 +16,8 @@ class MapLocation:
         aliases: Alternative names or spellings for the same location.
         event_ids: Timeline event IDs that mention this location.
         mention_count: Total number of mentions across events.
-        first_order: Timeline order of the first event that mentions this location.
+        first_order: 0-based index of the first mentioning event in the
+            ordered session timeline.
     """
 
     id: str

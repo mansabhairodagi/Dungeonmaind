@@ -4,6 +4,7 @@ from fastapi import HTTPException
 
 from app.api.routers.map import (
     get_event_location,
+    list_event_locations,
     list_location_events,
     list_locations,
 )
@@ -95,6 +96,45 @@ class MapLocationsApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(payload.canonical_name, 'Ye Olde Tavern')
         self.assertEqual(payload.aliases, ['the tavern'])
         self.assertEqual(payload.event_ids, ['evt_3', 'evt_4'])
+
+    async def test_get_event_locations_returns_the_places_that_list_the_event(self) -> None:
+        await _seed_four_event_example()
+
+        payload = await list_event_locations(event_id='evt_4', session_id='sess-1')
+
+        self.assertEqual(payload.session_id, 'sess-1')
+        self.assertEqual(payload.total, 1)
+        self.assertEqual(payload.locations[0].id, 'loc_3')
+        self.assertEqual(payload.locations[0].canonical_name, 'Ye Olde Tavern')
+        self.assertEqual(payload.locations[0].aliases, ['the tavern'])
+        self.assertEqual(payload.locations[0].event_ids, ['evt_3', 'evt_4'])
+
+    async def test_get_event_locations_returns_every_place_mentioned_by_the_event(self) -> None:
+        await timeline_store.add_events(
+            [
+                _event('evt_1', ['Velmora Crossing'], order=1),
+                _event('evt_2', ['Silver Lake'], order=2),
+                _event('evt_5', ['Velmora Crossing', 'Silver Lake'], order=5),
+            ]
+        )
+
+        payload = await list_event_locations(event_id='evt_5', session_id='sess-1')
+
+        self.assertEqual(payload.total, 2)
+        self.assertEqual(
+            [location.id for location in payload.locations], ['loc_1', 'loc_2']
+        )
+        self.assertEqual(payload.locations[0].canonical_name, 'Velmora Crossing')
+        self.assertEqual(payload.locations[1].canonical_name, 'Silver Lake')
+
+    async def test_get_event_locations_returns_404_when_event_has_no_place(self) -> None:
+        await _seed_four_event_example()
+
+        with self.assertRaises(HTTPException) as raised:
+            await list_event_locations(event_id='evt_99', session_id='sess-1')
+
+        self.assertEqual(raised.exception.status_code, 404)
+        self.assertEqual(raised.exception.detail, 'Location not found')
 
     async def test_get_event_location_returns_404_when_event_has_no_place(self) -> None:
         await _seed_four_event_example()

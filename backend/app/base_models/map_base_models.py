@@ -13,7 +13,7 @@ class MapLocationOut(BaseModel):
         aliases: Alternative names that resolved to this location.
         event_ids: Timeline event IDs that mention this location.
         mention_count: Total mentions across events.
-        first_order: Timeline order of the first mentioning event.
+        first_order: 0-based index of the first mentioning event in the session.
     """
 
     id: str

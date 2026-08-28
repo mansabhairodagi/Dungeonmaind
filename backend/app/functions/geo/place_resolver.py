@@ -248,6 +248,8 @@ def resolve_locations(
     alias-merge. Each location carries an ``event_ids`` index of every
     timeline event that mentioned it (canonical name or alias), so later
     lookup endpoints can read that list instead of scanning events again.
+    ``first_order`` is the 0-based index of the first mentioning event
+    in that ordered list.
 
     Args:
         events: Ordered TimelineEvent list for one session (order is used
@@ -294,9 +296,8 @@ def resolve_locations(
             )
         )
 
-    for event in ordered:
+    for first_order, event in enumerate(ordered):
         event_id = str(getattr(event, 'id', '') or '')
-        order = int(getattr(event, 'order', 0) or 0)
         credited: set[int] = set()
         for raw in getattr(event, 'location_entities', None) or []:
             name = normalize_place_name(str(raw))
@@ -308,7 +309,7 @@ def resolve_locations(
             location = locations[index]
             location.mention_count += 1
             if location.mention_count == 1:
-                location.first_order = order
+                location.first_order = first_order
             if event_id and index not in credited:
                 credited.add(index)
                 location.event_ids.append(event_id)

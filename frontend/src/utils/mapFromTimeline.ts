@@ -180,9 +180,60 @@ export function locationBelongsToNode(location: string, node: MapNode): boolean 
   return (node.aliases ?? []).some((alias) => placesMatch(location, alias))
 }
 
+const EDGE_TYPE_RANK: Record<MapEdge['type'], number> = {
+  other: 0,
+  traveled: 1,
+  near: 2,
+  inside: 3,
+  north_of: 4,
+}
+
+/** Infer a map-edge type from event wording until the real linker exists. */
+export function inferEdgeType(event: Pick<TimelineEventOut, 'title' | 'description' | 'event_type'>): MapEdge['type'] {
+  const text = `${event.title} ${event.description}`.toLowerCase()
+  if (
+    /\b(?:north of|south of|east of|west of|leading north|north towards|to the north)\b/.test(
+      text,
+    )
+  ) {
+    return 'north_of'
+  }
+  if (/\b(?:inside|entered|into the|within)\b/.test(text)) return 'inside'
+  if (/\b(?:near|beside|nearby|next to|close to)\b/.test(text)) return 'near'
+  if (
+    event.event_type === 'travel' ||
+    /\b(?:traveled|travelled|journeyed|headed to|towards|traveled to)\b/.test(text)
+  ) {
+    return 'traveled'
+  }
+  return 'other'
+}
+
+function addEdge(
+  edges: MapEdge[],
+  byKey: Map<string, MapEdge>,
+  from: string,
+  to: string,
+  type: MapEdge['type'],
+) {
+  if (!from || !to || from === to) return
+  const key = `${from}->${to}`
+  const existing = byKey.get(key)
+  if (!existing) {
+    const edge = { from, to, type }
+    byKey.set(key, edge)
+    edges.push(edge)
+    return
+  }
+  if (EDGE_TYPE_RANK[type] > EDGE_TYPE_RANK[existing.type]) {
+    existing.type = type
+  }
+}
+
 /**
  * Build a schematic map from Release 2 timeline events until the map API exists.
  * Near-duplicate place names (e.g. 'the tavern' / 'Ye Olde Tavern') collapse to one node.
+ * Colored links are inferred from event text (near / north of / inside / traveled).
  */
 export function buildMapFromTimeline(
   events: TimelineEventOut[],
@@ -203,31 +254,35 @@ export function buildMapFromTimeline(
     }
   }
 
+  const toNodeId = (label: string): string | null => {
+    const canonical = labelToCanonical.get(label.toLowerCase()) ?? label
+    const id = placeToId(canonical)
+    return nodeById.has(id) ? id : null
+  }
+
   const edges: MapEdge[] = []
-  const edgeKeys = new Set<string>()
+  const byKey = new Map<string, MapEdge>()
   const sorted = [...events].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
   let lastPlaceId: string | null = null
 
   for (const event of sorted) {
-    const locations = event.location_entities.map((label) => label.trim()).filter(Boolean)
-    if (locations.length === 0) continue
+    const placeIds = [
+      ...new Set(
+        event.location_entities
+          .map((label) => toNodeId(label.trim()))
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ]
+    if (placeIds.length === 0) continue
 
-    const canonical = labelToCanonical.get(locations[0].toLowerCase()) ?? locations[0]
-    const currentId = placeToId(canonical)
-
-    if (lastPlaceId && lastPlaceId !== currentId) {
-      const key = `${lastPlaceId}->${currentId}`
-      if (!edgeKeys.has(key)) {
-        edgeKeys.add(key)
-        edges.push({
-          from: lastPlaceId,
-          to: currentId,
-          type: event.event_type === 'travel' ? 'traveled' : 'other',
-        })
-      }
+    const type = inferEdgeType(event)
+    if (lastPlaceId) {
+      addEdge(edges, byKey, lastPlaceId, placeIds[0], type)
     }
-
-    lastPlaceId = currentId
+    for (let index = 0; index < placeIds.length - 1; index += 1) {
+      addEdge(edges, byKey, placeIds[index], placeIds[index + 1], type)
+    }
+    lastPlaceId = placeIds[placeIds.length - 1]
   }
 
   return {

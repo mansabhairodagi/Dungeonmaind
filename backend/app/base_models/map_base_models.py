@@ -31,3 +31,33 @@ class MapLocationListResponse(BaseModel):
     session_id: str
     locations: list[MapLocationOut]
     total: int
+
+
+class MapEdgeOut(BaseModel):
+    """Response model for a single inferred spatial link.
+
+    Attributes:
+        id: Unique edge identifier (edge_1, edge_2, ...).
+        session_id: Session this edge belongs to.
+        from_location_id: Source location id (loc_1, loc_2, ...).
+        to_location_id: Destination location id.
+        relationship: Kind of link (travel or proximity).
+        evidence_event_ids: Timeline event IDs that support this edge.
+        order: 0-based position of the edge in the inferred journey.
+    """
+
+    id: str
+    session_id: str
+    from_location_id: str
+    to_location_id: str
+    relationship: str
+    evidence_event_ids: list[str] = Field(default_factory=list)
+    order: int = 0
+
+
+class MapEdgeListResponse(BaseModel):
+    """Response model for the list of inferred links in a session."""
+
+    session_id: str
+    edges: list[MapEdgeOut]
+    total: int

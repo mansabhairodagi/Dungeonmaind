@@ -15,7 +15,6 @@ const mapStore = useMapStore()
 const timelineStore = useTimelineStore()
 
 const svgRef = ref<SVGSVGElement | null>(null)
-const viewBox = { width: 720, height: 420 }
 
 const edgeLabels: Record<MapEdgeType, string> = {
   traveled: 'Traveled',
@@ -26,32 +25,81 @@ const edgeLabels: Record<MapEdgeType, string> = {
 }
 
 const edgeColors: Record<MapEdgeType, string> = {
-  traveled: '#f39c12',
-  near: '#3498db',
-  north_of: '#2ecc71',
-  inside: '#9b59b6',
-  other: '#95a5a6',
+  traveled: '#b45309',
+  near: '#2f6f8f',
+  north_of: '#2e7d4f',
+  inside: '#7b4d8e',
+  other: '#8a7a4a',
 }
 
-const nodePositions = computed(() => {
-  const count = mapStore.nodes.length
-  if (count === 0) return new Map<string, { x: number; y: number }>()
-
-  const centerX = viewBox.width / 2
-  const centerY = viewBox.height / 2
-  const radius = Math.min(viewBox.width, viewBox.height) * 0.34
+/**
+ * Sequential "journey" layout: places are laid out in visit order along a
+ * serpentine path (left-to-right, then wrapping back), so the eye follows
+ * Start → … → End instead of an orderless ring.
+ */
+const layout = computed(() => {
+  const nodes = mapStore.nodes
   const positions = new Map<string, { x: number; y: number }>()
+  const count = nodes.length
+  if (count === 0) return { positions, width: 800, height: 460 }
 
-  mapStore.nodes.forEach((node, index) => {
-    const angle = (index / count) * Math.PI * 2 - Math.PI / 2
-    positions.set(node.id, {
-      x: centerX + Math.cos(angle) * radius,
-      y: centerY + Math.sin(angle) * radius,
-    })
+  const cols = Math.min(count, count <= 3 ? count : 4)
+  const rows = Math.ceil(count / cols)
+  const cellW = 250
+  const cellH = 200
+  const padX = 130
+  const padY = 130
+
+  nodes.forEach((node, index) => {
+    const row = Math.floor(index / cols)
+    const colInRow = index % cols
+    // Reverse direction on odd rows so the trail stays continuous.
+    const serpCol = row % 2 === 0 ? colInRow : cols - 1 - colInRow
+    positions.set(node.id, { x: padX + serpCol * cellW, y: padY + row * cellH })
   })
 
-  return positions
+  return {
+    positions,
+    width: padX * 2 + (cols - 1) * cellW,
+    height: padY * 2 + (rows - 1) * cellH,
+  }
 })
+
+const nodePositions = computed(() => layout.value.positions)
+
+/** Ids of the selected place plus everything directly linked to it. */
+const connectedNodeIds = computed(() => {
+  const selected = highlightedPlaceId.value
+  if (!selected) return null
+  const ids = new Set<string>([selected])
+  mapStore.edges.forEach((edge) => {
+    if (edge.from === selected) ids.add(edge.to)
+    if (edge.to === selected) ids.add(edge.from)
+  })
+  return ids
+})
+
+function nodeLabel(id: string): string {
+  return mapStore.nodes.find((node) => node.id === id)?.label ?? id
+}
+
+function nodeDimmed(id: string): boolean {
+  const connected = connectedNodeIds.value
+  return connected ? !connected.has(id) : false
+}
+
+function edgeTouchesSelection(from: string, to: string): boolean {
+  const selected = highlightedPlaceId.value
+  return selected ? from === selected || to === selected : false
+}
+
+function isStart(index: number): boolean {
+  return index === 0
+}
+
+function isEnd(index: number): boolean {
+  return index === mapStore.nodes.length - 1
+}
 
 const highlightedPlaceId = computed(() => {
   const fromQuery = mapStore.resolvePlaceQuery(
@@ -91,7 +139,15 @@ function edgePath(fromId: string, toId: string): string {
   const from = nodePositions.value.get(fromId)
   const to = nodePositions.value.get(toId)
   if (!from || !to) return ''
-  return `M ${from.x} ${from.y} L ${to.x} ${to.y}`
+  // Gentle curved "trail" — offset the control point perpendicular to the
+  // straight line so overlapping routes stay readable, like a treasure map.
+  const dx = to.x - from.x
+  const dy = to.y - from.y
+  const len = Math.hypot(dx, dy) || 1
+  const arc = Math.min(70, len * 0.2)
+  const cx = (from.x + to.x) / 2 - (dy / len) * arc
+  const cy = (from.y + to.y) / 2 + (dx / len) * arc
+  return `M ${from.x} ${from.y} Q ${cx} ${cy} ${to.x} ${to.y}`
 }
 
 async function loadMap() {
@@ -166,28 +222,52 @@ watch(
           <svg
             ref="svgRef"
             class="map-canvas"
-            :viewBox="`0 0 ${viewBox.width} ${viewBox.height}`"
+            :viewBox="`0 0 ${layout.width} ${layout.height}`"
+            preserveAspectRatio="xMidYMid meet"
             role="img"
-            aria-label="Campaign place map"
+            aria-label="Campaign place map showing the party's journey"
           >
             <defs>
               <marker
                 id="arrow-traveled"
-                markerWidth="8"
-                markerHeight="8"
-                refX="7"
-                refY="4"
+                markerWidth="10"
+                markerHeight="10"
+                refX="9"
+                refY="5"
                 orient="auto"
+                markerUnits="userSpaceOnUse"
               >
-                <path d="M0,0 L8,4 L0,8 Z" fill="#f39c12" />
+                <path d="M0,0 L10,5 L0,10 Z" fill="#b45309" />
               </marker>
+              <filter id="node-shadow" x="-50%" y="-50%" width="200%" height="200%">
+                <feDropShadow
+                  dx="0"
+                  dy="3"
+                  stdDeviation="4"
+                  flood-color="#2b1c04"
+                  flood-opacity="0.35"
+                />
+              </filter>
             </defs>
 
             <g class="edges">
-              <g v-for="(edge, index) in mapStore.edges" :key="`${edge.from}-${edge.to}-${index}`">
+              <g
+                v-for="(edge, index) in mapStore.edges"
+                :key="`${edge.from}-${edge.to}-${index}`"
+                class="edge-group"
+                :class="{
+                  dimmed: highlightedPlaceId && !edgeTouchesSelection(edge.from, edge.to),
+                  active: edgeTouchesSelection(edge.from, edge.to),
+                }"
+              >
+                <title>
+                  {{ edgeLabels[edge.type] || 'Linked' }}: {{ nodeLabel(edge.from) }} →
+                  {{ nodeLabel(edge.to) }}
+                </title>
                 <path
                   :d="edgePath(edge.from, edge.to)"
                   class="edge-line"
+                  :class="{ proximity: edge.type !== 'traveled' }"
                   :stroke="edgeColors[edge.type] || edgeColors.other"
                   :marker-end="edge.type === 'traveled' ? 'url(#arrow-traveled)' : undefined"
                 />
@@ -196,21 +276,50 @@ watch(
 
             <g class="nodes">
               <g
-                v-for="node in mapStore.nodes"
+                v-for="(node, index) in mapStore.nodes"
                 :key="node.id"
                 class="node-group"
-                :class="{ highlighted: highlightedPlaceId === node.id }"
+                :class="{
+                  highlighted: highlightedPlaceId === node.id,
+                  dimmed: nodeDimmed(node.id),
+                }"
+                role="button"
+                tabindex="0"
+                :aria-label="`Place ${index + 1}: ${node.label}`"
                 @click="handleSelectPlace(node.id)"
+                @keyup.enter="handleSelectPlace(node.id)"
               >
+                <title>
+                  {{ node.label }}<template v-if="node.aliases?.length"> (also:
+                  {{ node.aliases.join(', ') }})</template>
+                </title>
+
+                <text
+                  v-if="isStart(index) || isEnd(index)"
+                  :x="nodePositions.get(node.id)?.x"
+                  :y="(nodePositions.get(node.id)?.y ?? 0) - 48"
+                  class="node-flag"
+                >
+                  {{ isStart(index) ? 'START' : 'END' }}
+                </text>
+
                 <circle
                   :cx="nodePositions.get(node.id)?.x"
                   :cy="nodePositions.get(node.id)?.y"
-                  r="28"
+                  r="34"
                   class="node-circle"
+                  filter="url(#node-shadow)"
                 />
                 <text
                   :x="nodePositions.get(node.id)?.x"
-                  :y="(nodePositions.get(node.id)?.y ?? 0) + 44"
+                  :y="(nodePositions.get(node.id)?.y ?? 0) + 6"
+                  class="node-index"
+                >
+                  {{ index + 1 }}
+                </text>
+                <text
+                  :x="nodePositions.get(node.id)?.x"
+                  :y="(nodePositions.get(node.id)?.y ?? 0) + 60"
                   class="node-label"
                 >
                   {{ node.label }}
@@ -220,11 +329,7 @@ watch(
           </svg>
 
           <div class="legend">
-            <span
-              v-for="(label, type) in edgeLabels"
-              :key="type"
-              class="legend-item"
-            >
+            <span v-for="(label, type) in edgeLabels" :key="type" class="legend-item">
               <i :style="{ background: edgeColors[type as MapEdgeType] }"></i>
               {{ label }}
             </span>
@@ -242,10 +347,7 @@ watch(
             <div class="selected-place-card">
               <p class="sidebar-eyebrow">Selected place</p>
               <h3>{{ mapStore.selectedNode.label }}</h3>
-              <p
-                v-if="mapStore.selectedNode.aliases?.length"
-                class="sidebar-aliases"
-              >
+              <p v-if="mapStore.selectedNode.aliases?.length" class="sidebar-aliases">
                 Also known as: {{ mapStore.selectedNode.aliases.join(', ') }}
               </p>
             </div>
@@ -273,7 +375,11 @@ watch(
 <style src="@/assets/styles.css"></style>
 <style scoped>
 .map-page {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
   height: 100vh;
+  width: 100vw;
   padding: 60px 1.25rem 1.25rem;
   background-image: url('/bg-texture.jpg');
   background-size: cover;
@@ -286,7 +392,7 @@ watch(
 }
 
 .map-shell {
-  max-width: 1100px;
+  max-width: 1280px;
   height: 100%;
   margin: 0 auto;
   padding: 1.4rem;
@@ -455,42 +561,99 @@ watch(
 .map-canvas {
   width: 100%;
   flex: 1;
-  min-height: 280px;
-  background: rgba(255, 255, 255, 0.35);
-  border-radius: 10px;
+  min-height: 440px;
+  background: radial-gradient(
+    circle at 30% 20%,
+    rgba(255, 251, 235, 0.9),
+    rgba(244, 232, 200, 0.82) 55%,
+    rgba(226, 208, 160, 0.85) 100%
+  );
+  border: 1px solid rgba(105, 87, 16, 0.3);
+  border-radius: 12px;
+  box-shadow: inset 0 0 40px rgba(120, 92, 30, 0.25);
+}
+
+.edge-group {
+  transition: opacity 0.2s ease;
+}
+
+.edge-group.dimmed {
+  opacity: 0.2;
 }
 
 .edge-line {
   fill: none;
-  stroke-width: 3;
-  opacity: 0.85;
+  stroke-width: 3.5;
+  opacity: 0.9;
+  stroke-linecap: round;
+}
+
+.edge-line.proximity {
+  stroke-dasharray: 6 7;
+  opacity: 0.75;
+}
+
+.edge-group.active .edge-line {
+  stroke-width: 5;
+  opacity: 1;
 }
 
 .node-group {
   cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.node-group:focus {
+  outline: none;
+}
+
+.node-group.dimmed {
+  opacity: 0.32;
 }
 
 .node-circle {
-  fill: #d4b86a;
+  fill: #e2c583;
   stroke: #8e7513;
   stroke-width: 3;
   transition: all 0.2s ease;
 }
 
 .node-group:hover .node-circle,
+.node-group:focus .node-circle,
 .node-group.highlighted .node-circle {
-  fill: #f39c12;
+  fill: #f4b95a;
   stroke: #b45309;
-  stroke-width: 4;
+  stroke-width: 4.5;
+}
+
+.node-index {
+  text-anchor: middle;
+  font-size: 22px;
+  font-weight: 700;
+  fill: #4a3403;
+  font-family: 'MedievalSharp', cursive;
+  pointer-events: none;
+}
+
+.node-flag {
+  text-anchor: middle;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  fill: #b45309;
+  pointer-events: none;
 }
 
 .node-label {
   text-anchor: middle;
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 700;
-  fill: #392401;
+  fill: #2f1e02;
   font-family: 'MedievalSharp', cursive;
   pointer-events: none;
+  paint-order: stroke;
+  stroke: rgba(255, 250, 235, 0.9);
+  stroke-width: 3px;
 }
 
 .legend {

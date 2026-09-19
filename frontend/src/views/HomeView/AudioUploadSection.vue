@@ -56,5 +56,3 @@ function onAudioFileChange(event: Event) {
     </div>
   </div>
 </template>
-
-<style src="@/assets/styles.css"></style>

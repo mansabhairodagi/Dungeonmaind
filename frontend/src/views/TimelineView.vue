@@ -277,7 +277,6 @@ onMounted(() => {
   </div>
 </template>
 
-<style src="@/assets/styles.css"></style>
 <style scoped>
 .timeline-page {
   height: 100vh;
@@ -378,14 +377,15 @@ onMounted(() => {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
 }
 
+/* Primary action, in the theme's terracotta rather than the stray slate blue. */
 .btn-primary {
-  background-color: rgba(53, 73, 94, 0.9);
-  border-color: #4a575e;
-  color: white;
+  background-color: var(--dm-primary);
+  border-color: var(--dm-border-strong);
+  color: var(--dm-primary-ink);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background-color: #4a575e;
+  background-color: var(--dm-primary-hover);
   transform: translateY(-1px);
 }
 
@@ -394,14 +394,16 @@ onMounted(() => {
   cursor: not-allowed;
 }
 
+/* Destructive actions sit a shade deeper than the primary so "Clear All" and
+   "Delete Event" never read as the same weight as "Generate Events". */
 .btn-danger {
-  background-color: #b74d30;
-  border-color: #8e7513;
-  color: white;
+  background-color: var(--dm-danger);
+  border-color: var(--dm-border-strong);
+  color: var(--dm-primary-ink);
 }
 
 .btn-danger:hover:not(:disabled) {
-  background-color: #7e6f34;
+  background-color: #74240f;
   transform: translateY(-1px);
 }
 

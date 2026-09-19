@@ -47,7 +47,6 @@ const showQRCodeModal = ref(false)
   </div>
 </template>
 
-<style src="@/assets/styles.css"></style>
 <style scoped>
 .join-link {
   font-family: 'MedievalSharp', cursive;

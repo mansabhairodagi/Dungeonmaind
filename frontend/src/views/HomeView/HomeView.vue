@@ -173,26 +173,34 @@ onBeforeUnmount(() => {
   </div>
 </template>
 
-<style src="@/assets/styles.css"></style>
 <style scoped>
-/* Main container */
+/*
+ * Dashboard layout.
+ *
+ * Two real columns: the main content stack and the right rail. This used to
+ * depend on the global `#app` starter grid to push the content leftwards,
+ * while the rail escaped the flow with `position: fixed; right: 15%`. The
+ * columns are now declared here, so the two can never overlap.
+ *
+ * `.header` is `position: fixed`, so it is not a grid item.
+ */
 .container {
-  max-width: 600px;
-  margin: 2rem auto;
-  padding: 1rem;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  max-height: 90vh;
+  display: grid;
+  grid-template-columns: minmax(0, 600px) minmax(0, 540px);
+  justify-content: center;
+  align-items: start;
+  gap: var(--dm-space-6);
+  max-width: 1220px;
+  margin: var(--dm-space-6) auto;
+  padding: var(--dm-space-4);
   position: relative;
 }
 
 /* Centered content */
 .centered-content {
   background-color: rgba(163, 148, 95, 0.8);
-  padding: 2rem;
-  border-radius: 8px;
-  max-width: 600px;
+  padding: var(--dm-space-6);
+  border-radius: var(--dm-radius-sm);
   width: 100%;
   box-sizing: border-box;
   border: 1px solid rgba(255, 255, 255, 0.2);
@@ -200,12 +208,12 @@ onBeforeUnmount(() => {
   margin-top: 60px;
 }
 
-/* Responsive design */
-@media (max-width: 1200px) {
+/* Responsive design – collapse to a single column. */
+@media (max-width: 1300px) {
   .container {
+    grid-template-columns: minmax(0, 600px);
     max-width: 100%;
-    margin: 1rem;
-    align-items: center;
+    margin: var(--dm-space-4) auto;
   }
 }
 </style>

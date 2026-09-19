@@ -12,6 +12,9 @@
 # mkdocs build output
 site/
 
+# Playwright MCP screenshots / snapshots
+.playwright-mcp/
+
 # system / user nonsense
 ~/
 .project_flow.md

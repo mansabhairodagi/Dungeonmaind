@@ -594,7 +594,6 @@ async function confirmDeletion() {
   </div>
 </template>
 
-<style src="@/assets/styles.css"></style>
 <style scoped>
 /* Header */
 .header {
@@ -619,32 +618,53 @@ async function confirmDeletion() {
   gap: 0.5rem;
 }
 
+/*
+ * Nav actions. These were slate blue (#35495e), the one palette in the app
+ * with no relationship to the parchment theme. They are now quiet parchment
+ * buttons, so the terracotta primary actions in the page body stay the
+ * strongest thing on screen.
+ */
 .rulebook-button,
 .timeline-button,
 .map-button,
 .config-button,
 .export-button {
-  padding: 0.5rem 1rem;
-  background-color: rgba(53, 73, 94, 0.9);
-  border: 1px solid #4a575e;
-  border-radius: 4px;
-  color: #fff;
+  padding: var(--dm-space-2) var(--dm-space-4);
+  background-color: rgba(57, 36, 1, 0.14);
+  border: 1px solid rgba(57, 36, 1, 0.3);
+  border-radius: var(--dm-radius-sm);
+  color: #3a2603;
   cursor: pointer;
-  font-family: 'MedievalSharp', cursive;
+  font-family: var(--dm-font-display);
   font-weight: normal;
-  transition: background-color 0.3s ease;
+  transition:
+    background-color var(--dm-transition),
+    border-color var(--dm-transition);
   text-decoration: none;
   display: inline-flex;
   align-items: center;
   box-sizing: border-box;
 }
 
-.rulebook-button:hover,
-.timeline-button:hover,
-.map-button:hover,
-.config-button:hover,
-.export-button:hover {
-  background-color: #4a575e;
+.rulebook-button:hover:not(:disabled),
+.timeline-button:hover:not(:disabled),
+.map-button:hover:not(:disabled),
+.config-button:hover:not(:disabled),
+.export-button:hover:not(:disabled) {
+  background-color: rgba(57, 36, 1, 0.24);
+  border-color: rgba(57, 36, 1, 0.45);
+}
+
+/* The session-save action is the header's primary control. */
+.export-button {
+  background-color: var(--dm-primary);
+  border-color: var(--dm-border-strong);
+  color: var(--dm-primary-ink);
+}
+
+.export-button:hover:not(:disabled) {
+  background-color: var(--dm-primary-hover);
+  border-color: var(--dm-border-strong);
 }
 
 .rulebook-button:disabled,

@@ -161,17 +161,24 @@ function toggleFolder(folder: string) {
 
 .goHome-button {
   padding: 0.7rem 1.4rem;
-  background-color: rgba(53, 73, 94, 0.9);
-  border: 1px solid #4a575e;
-  border-radius: 4px;
-  color: white;
+  background-color: rgba(57, 36, 1, 0.14);
+  border: 1px solid rgba(57, 36, 1, 0.3);
+  border-radius: var(--dm-radius-sm);
+  color: var(--dm-ink);
   cursor: pointer;
-  font-family: 'MedievalSharp', cursive;
+  font-family: var(--dm-font-display);
   font-weight: normal;
   font-size: 0.9rem;
-  transition: background-color 0.3s ease;
+  transition:
+    background-color var(--dm-transition),
+    border-color var(--dm-transition);
   margin-top: 10px;
   margin-left: 20%;
+}
+
+.goHome-button:hover {
+  background-color: rgba(57, 36, 1, 0.24);
+  border-color: rgba(57, 36, 1, 0.45);
 }
 
 .goHome-button :hover {

@@ -151,7 +151,16 @@ function edgePath(fromId: string, toId: string): string {
 }
 
 async function loadMap() {
-  await mapStore.fetchMap()
+  // The sidebar resolves linked event ids against the timeline store, so the
+  // events have to be loaded whether the graph came from the map API or from
+  // the timeline fallback. Only the fallback path used to fetch them, which
+  // left "Place details" empty whenever the API answered.
+  const timelineReady =
+    timelineStore.events.length === 0 && !timelineStore.loading
+      ? timelineStore.fetchEvents()
+      : Promise.resolve()
+
+  await Promise.all([mapStore.fetchMap(), timelineReady])
   const placeId = mapStore.resolvePlaceQuery(
     typeof route.query.place === 'string' ? route.query.place : null,
   )
@@ -372,7 +381,6 @@ watch(
   </div>
 </template>
 
-<style src="@/assets/styles.css"></style>
 <style scoped>
 .map-page {
   position: fixed;
@@ -483,9 +491,16 @@ watch(
   color: #fff;
 }
 
+/* Quiet parchment tone rather than the stray slate blue, so "Refresh Map"
+   stays the stronger of the two header actions. */
 .btn-secondary {
-  background-color: rgba(53, 73, 94, 0.9);
-  color: #fff;
+  background-color: rgba(57, 36, 1, 0.14);
+  border-color: rgba(57, 36, 1, 0.3);
+  color: var(--dm-ink);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: rgba(57, 36, 1, 0.24);
 }
 
 .btn:disabled {

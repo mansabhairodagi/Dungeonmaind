@@ -152,7 +152,6 @@ function showPrevMarkdown() {
   </div>
 </template>
 
-<style src="@/assets/styles.css"></style>
 <style scoped>
 /* Markdown styles */
 :deep(.markdown-output) {

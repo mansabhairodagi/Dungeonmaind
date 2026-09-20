@@ -61,3 +61,34 @@ class MapEdgeListResponse(BaseModel):
     session_id: str
     edges: list[MapEdgeOut]
     total: int
+
+
+class MapGraphResponse(BaseModel):
+    """Response model for a session's full map graph."""
+
+    session_id: str
+    locations: list[MapLocationOut]
+    edges: list[MapEdgeOut]
+
+
+class MapGenerateRequest(BaseModel):
+    """Request model for generating a session's map from its timeline."""
+
+    session_id: str = 'default'
+
+
+class MapGenerateResponse(BaseModel):
+    """Response model after resolving, linking, and persisting a session's map."""
+
+    session_id: str
+    locations_generated: int
+    edges_generated: int
+    locations: list[MapLocationOut]
+    edges: list[MapEdgeOut]
+
+
+class MapDeleteResponse(BaseModel):
+    """Response model for a map deletion result."""
+
+    deleted: bool
+    session_id: str | None = None

@@ -8,6 +8,7 @@ import { SERVER_CONFIG } from '@/config/config'
 
 const selectedAudioFile = ref<File | null>(null)
 const audioUploadStatus = ref<string>('')
+const isUploading = ref<boolean>(false)
 
 /** Audio upload */
 async function handleAudioUpload() {
@@ -18,6 +19,9 @@ async function handleAudioUpload() {
 
   const formData = new FormData()
   formData.append('audio', selectedAudioFile.value)
+
+  isUploading.value = true
+  audioUploadStatus.value = 'Audio is uploading, please wait...'
 
   try {
     const response = await fetch(
@@ -35,6 +39,8 @@ async function handleAudioUpload() {
   } catch (error) {
     console.error('An error occurred while uploading your audio file:', error)
     audioUploadStatus.value = 'Upload error'
+  } finally {
+    isUploading.value = false
   }
 }
 
@@ -44,15 +50,24 @@ function onAudioFileChange(event: Event) {
 }
 </script>
 
+<style scoped>
+.output {
+  margin-bottom: var(--dm-space-4);
+}
+</style>
+
 <template>
   <div class="content-section">
     <!-- Leader-only: upload -->
     <h2>Upload Audio File</h2>
     <input type="file" accept="audio/*" @change="onAudioFileChange" class="input-field" />
-    <button @click="handleAudioUpload" class="submit-button">Upload Audio</button>
 
     <div v-if="audioUploadStatus" class="output">
       <p>{{ audioUploadStatus }}</p>
     </div>
+
+    <button @click="handleAudioUpload" class="submit-button" :disabled="isUploading">
+      {{ isUploading ? 'Uploading...' : 'Upload Audio' }}
+    </button>
   </div>
 </template>

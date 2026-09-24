@@ -618,22 +618,17 @@ async function confirmDeletion() {
   gap: 0.5rem;
 }
 
-/*
- * Nav actions. These were slate blue (#35495e), the one palette in the app
- * with no relationship to the parchment theme. They are now quiet parchment
- * buttons, so the terracotta primary actions in the page body stay the
- * strongest thing on screen.
- */
+/* Header nav actions — match body primary (terracotta orange). */
 .rulebook-button,
 .timeline-button,
 .map-button,
 .config-button,
 .export-button {
   padding: var(--dm-space-2) var(--dm-space-4);
-  background-color: rgba(57, 36, 1, 0.14);
-  border: 1px solid rgba(57, 36, 1, 0.3);
+  background-color: var(--dm-primary);
+  border: 1px solid var(--dm-border-strong);
   border-radius: var(--dm-radius-sm);
-  color: #3a2603;
+  color: var(--dm-primary-ink);
   cursor: pointer;
   font-family: var(--dm-font-display);
   font-weight: normal;
@@ -650,18 +645,6 @@ async function confirmDeletion() {
 .timeline-button:hover:not(:disabled),
 .map-button:hover:not(:disabled),
 .config-button:hover:not(:disabled),
-.export-button:hover:not(:disabled) {
-  background-color: rgba(57, 36, 1, 0.24);
-  border-color: rgba(57, 36, 1, 0.45);
-}
-
-/* The session-save action is the header's primary control. */
-.export-button {
-  background-color: var(--dm-primary);
-  border-color: var(--dm-border-strong);
-  color: var(--dm-primary-ink);
-}
-
 .export-button:hover:not(:disabled) {
   background-color: var(--dm-primary-hover);
   border-color: var(--dm-border-strong);

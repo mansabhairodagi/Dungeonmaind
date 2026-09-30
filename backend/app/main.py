@@ -9,11 +9,6 @@ import logging
 import sys
 from contextlib import asynccontextmanager
 
-# On windows its possible to run into race conditions when using asyncio.
-# Setting the EventLoopPolicy here will prevent async race conditions.
-if sys.platform.startswith('win'):
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from uvicorn import run
@@ -39,6 +34,11 @@ from app.functions.embedding.embedding_model import (
     has_rulebook_embeddings,
     read_text_files,
 )
+
+# On windows its possible to run into race conditions when using asyncio.
+# Setting the EventLoopPolicy here will prevent async race conditions.
+if sys.platform.startswith('win'):
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 # List of available api endpoints
 all_routers = [

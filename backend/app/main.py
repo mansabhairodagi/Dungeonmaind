@@ -18,7 +18,6 @@ from app.api.routers import (
     export_import_session,
     health,
     llm,
-    map as map_router,
     players,
     process_audio_data,
     root,
@@ -26,6 +25,7 @@ from app.api.routers import (
     timeline,
     ws_players,
 )
+from app.api.routers import map as map_router
 from app.core.config import settings
 from app.functions.embedding.embedding_model import (
     delete_chromadb,

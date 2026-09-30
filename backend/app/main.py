@@ -5,14 +5,14 @@ and handles startup/shutdown lifecycle for ChromaDB embedding.
 """
 
 import asyncio
+import logging
 import sys
+from contextlib import asynccontextmanager
 
 # On windows its possible to run into race conditions when using asyncio.
 # Setting the EventLoopPolicy here will prevent async race conditions.
 if sys.platform.startswith('win'):
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-import logging
-from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

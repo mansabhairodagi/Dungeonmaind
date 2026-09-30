@@ -46,10 +46,10 @@ def _is_contiguous_subsequence(shorter: list[str], longer: list[str]) -> bool:
     if not shorter or not longer or len(shorter) > len(longer):
         return False
     span = len(shorter)
-    for index in range(len(longer) - span + 1):
-        if longer[index : index + span] == shorter:
-            return True
-    return False
+    return any(
+        longer[index : index + span] == shorter
+        for index in range(len(longer) - span + 1)
+    )
 
 
 def _edit_distance(left: str, right: str) -> int:
@@ -86,14 +86,12 @@ def _is_near_duplicate(left: str, right: str) -> bool:
         return True
     if _is_contiguous_subsequence(right_tokens, left_tokens):
         return True
-    if (
+    return (
         len(left_tokens) == 1
         and len(right_tokens) == 1
         and min(len(left_tokens[0]), len(right_tokens[0])) >= 5
         and _edit_distance(left_tokens[0], right_tokens[0]) <= 1
-    ):
-        return True
-    return False
+    )
 
 
 def _specificity(name: str) -> tuple[int, int]:

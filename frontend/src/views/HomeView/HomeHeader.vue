@@ -33,6 +33,10 @@ function goToTimeline() {
   router.push({ name: 'timeline' })
 }
 
+function goToMap() {
+  router.push({ name: 'map' })
+}
+
 const showNameModal = ref(false)
 const sessionName = ref('')
 const showCampaignSelectModal = ref(false)
@@ -416,6 +420,7 @@ async function confirmDeletion() {
     <div class="header-right">
       <button class="rulebook-button" @click="showRulebookModal = true">Rulebook</button>
       <button type="button" class="timeline-button" @click="goToTimeline">Timeline</button>
+      <button type="button" class="map-button" @click="goToMap">Map</button>
       <button v-if="store.isLeader" class="config-button" @click="openConfig">Config</button>
       <button
         v-if="store.isLeader"
@@ -589,7 +594,6 @@ async function confirmDeletion() {
   </div>
 </template>
 
-<style src="@/assets/styles.css"></style>
 <style scoped>
 /* Header */
 .header {
@@ -614,34 +618,41 @@ async function confirmDeletion() {
   gap: 0.5rem;
 }
 
+/* Header nav actions — match body primary (terracotta orange). */
 .rulebook-button,
 .timeline-button,
+.map-button,
 .config-button,
 .export-button {
-  padding: 0.5rem 1rem;
-  background-color: rgba(53, 73, 94, 0.9);
-  border: 1px solid #4a575e;
-  border-radius: 4px;
-  color: #fff;
+  padding: var(--dm-space-2) var(--dm-space-4);
+  background-color: var(--dm-primary);
+  border: 1px solid var(--dm-border-strong);
+  border-radius: var(--dm-radius-sm);
+  color: var(--dm-primary-ink);
   cursor: pointer;
-  font-family: 'MedievalSharp', cursive;
+  font-family: var(--dm-font-display);
   font-weight: normal;
-  transition: background-color 0.3s ease;
+  transition:
+    background-color var(--dm-transition),
+    border-color var(--dm-transition);
   text-decoration: none;
   display: inline-flex;
   align-items: center;
   box-sizing: border-box;
 }
 
-.rulebook-button:hover,
-.timeline-button:hover,
-.config-button:hover,
-.export-button:hover {
-  background-color: #4a575e;
+.rulebook-button:hover:not(:disabled),
+.timeline-button:hover:not(:disabled),
+.map-button:hover:not(:disabled),
+.config-button:hover:not(:disabled),
+.export-button:hover:not(:disabled) {
+  background-color: var(--dm-primary-hover);
+  border-color: var(--dm-border-strong);
 }
 
 .rulebook-button:disabled,
 .timeline-button:disabled,
+.map-button:disabled,
 .config-button:disabled,
 .export-button:disabled {
   opacity: 0.7;

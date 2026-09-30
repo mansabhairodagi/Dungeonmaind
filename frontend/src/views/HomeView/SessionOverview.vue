@@ -13,7 +13,6 @@ const store = useSessionStore()
   </section>
 </template>
 
-<style src="@/assets/styles.css"></style>
 <style scoped>
 .hello-title {
   font-size: 1.9rem;

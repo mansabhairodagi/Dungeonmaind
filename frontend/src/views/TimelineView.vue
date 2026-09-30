@@ -4,13 +4,14 @@
  * Supports filtering by event type, viewing details in a modal,
  * generating new events, and deleting individual or all events.
  */
-import { onMounted, ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { onMounted, ref, computed, watch, nextTick } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useTimelineStore } from '@/stores/timeline'
 import { useSessionStore } from '@/stores/session'
 import type { TimelineEventOut } from '@/api/timelineAPI'
 
 const router = useRouter()
+const route = useRoute()
 const timelineStore = useTimelineStore()
 const sessionStore = useSessionStore()
 
@@ -111,6 +112,13 @@ function goBack() {
   router.push({ name: 'home' })
 }
 
+/** Open the map focused on a place from a timeline location chip. */
+function goToMapPlace(place: string) {
+  const label = place.trim()
+  if (!label) return
+  router.push({ name: 'map', query: { place: label } })
+}
+
 function formatTimestamp(seconds: number): string | null {
   if (!Number.isFinite(seconds) || seconds <= 0) return null
   const hours = Math.floor(seconds / 3600)
@@ -123,9 +131,33 @@ function eventDisplayTime(event: TimelineEventOut): string {
   return event.display_time ?? formatTimestamp(event.timestamp) ?? '—'
 }
 
-onMounted(() => {
-  timelineStore.fetchEvents()
+/** Open and scroll to an event when arriving from Map via ?event=. */
+async function openEventFromQuery() {
+  const eventId = typeof route.query.event === 'string' ? route.query.event.trim() : ''
+  if (!eventId) return
+
+  const event = timelineStore.events.find((item) => item.id === eventId)
+  if (!event) return
+
+  openDetail(event)
+  await nextTick()
+  const el = document.querySelector(`[data-event-id="${CSS.escape(eventId)}"]`)
+  if (el instanceof HTMLElement) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+}
+
+onMounted(async () => {
+  await timelineStore.fetchEvents()
+  await openEventFromQuery()
 })
+
+watch(
+  () => route.query.event,
+  async () => {
+    await openEventFromQuery()
+  },
+)
 </script>
 
 <template>
@@ -223,6 +255,8 @@ onMounted(() => {
               v-for="event in filteredEvents"
               :key="event.id"
               class="timeline-event"
+              :data-event-id="event.id"
+              :class="{ focused: selectedEvent?.id === event.id }"
               :style="{ '--event-color': typeColors[event.event_type] || '#95a5a6' }"
               @click="openDetail(event)"
             >
@@ -259,8 +293,20 @@ onMounted(() => {
             <div v-if="selectedEvent.speaker_name" class="detail-row">
               <strong>Speaker:</strong> {{ selectedEvent.speaker_name }}
             </div>
-            <div v-if="selectedEvent.location_entities.length" class="detail-row">
-              <strong>Locations:</strong> {{ selectedEvent.location_entities.join(', ') }}
+            <div v-if="selectedEvent.location_entities.length" class="detail-row locations-row">
+              <strong>Locations:</strong>
+              <span class="location-chips">
+                <button
+                  v-for="place in selectedEvent.location_entities"
+                  :key="place"
+                  type="button"
+                  class="location-chip"
+                  :title="`Open map at ${place}`"
+                  @click.stop="goToMapPlace(place)"
+                >
+                  {{ place }}
+                </button>
+              </span>
             </div>
             <div v-if="selectedEvent.characters.length" class="detail-row">
               <strong>Characters:</strong> {{ selectedEvent.characters.join(', ') }}
@@ -277,7 +323,6 @@ onMounted(() => {
   </div>
 </template>
 
-<style src="@/assets/styles.css"></style>
 <style scoped>
 .timeline-page {
   height: 100vh;
@@ -378,14 +423,15 @@ onMounted(() => {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
 }
 
+/* Primary action, in the theme's terracotta rather than the stray slate blue. */
 .btn-primary {
-  background-color: rgba(53, 73, 94, 0.9);
-  border-color: #4a575e;
-  color: white;
+  background-color: var(--dm-primary);
+  border-color: var(--dm-border-strong);
+  color: var(--dm-primary-ink);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background-color: #4a575e;
+  background-color: var(--dm-primary-hover);
   transform: translateY(-1px);
 }
 
@@ -394,14 +440,16 @@ onMounted(() => {
   cursor: not-allowed;
 }
 
+/* Destructive actions sit a shade deeper than the primary so "Clear All" and
+   "Delete Event" never read as the same weight as "Generate Events". */
 .btn-danger {
-  background-color: #b74d30;
-  border-color: #8e7513;
-  color: white;
+  background-color: var(--dm-danger);
+  border-color: var(--dm-border-strong);
+  color: var(--dm-primary-ink);
 }
 
 .btn-danger:hover:not(:disabled) {
-  background-color: #7e6f34;
+  background-color: #74240f;
   transform: translateY(-1px);
 }
 
@@ -574,6 +622,11 @@ onMounted(() => {
   position: relative;
   margin-bottom: 1rem;
   cursor: pointer;
+}
+
+.timeline-event.focused .event-card {
+  outline: 2px solid #b45309;
+  box-shadow: 0 4px 14px rgba(180, 83, 9, 0.28);
 }
 
 .event-dot {
@@ -750,5 +803,35 @@ onMounted(() => {
 
 .detail-row strong {
   color: #695710;
+}
+
+.locations-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.location-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.location-chip {
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid #8e7513;
+  background: rgba(243, 156, 18, 0.18);
+  color: #392401;
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-family: 'MedievalSharp', cursive;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.location-chip:hover {
+  background: rgba(243, 156, 18, 0.35);
 }
 </style>

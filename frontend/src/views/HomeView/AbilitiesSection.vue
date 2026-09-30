@@ -617,7 +617,6 @@ function stopReRecord(playerId: string) {
   </section>
 </template>
 
-<style src="@/assets/styles.css"></style>
 <style scoped>
 /* Abilities */
 .abilities-section {

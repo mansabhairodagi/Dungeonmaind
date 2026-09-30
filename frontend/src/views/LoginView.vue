@@ -353,7 +353,8 @@ async function JoinExistingPlayer() {
 <template>
   <div class="login-page">
     <div class="rail-panel login-card">
-      <h1>Login Page</h1>
+      <h1>DungeonMind</h1>
+      <p class="login-tagline">Connect to your session to start recording the campaign.</p>
 
       <div class="check-card">
         <label for="baseUrl">Backend-Adresse</label>
@@ -609,7 +610,6 @@ async function JoinExistingPlayer() {
   </div>
 </template>
 
-<style src="@/assets/styles.css"></style>
 <style scoped>
 .config-page {
   max-width: 600px;
@@ -618,10 +618,22 @@ async function JoinExistingPlayer() {
   text-align: center;
 }
 
+/* Centre the card in the viewport rather than leaving it pinned to the top. */
 .login-page {
   max-width: 600px;
-  margin: 2rem auto;
-  padding: 1rem;
+  margin: 0 auto;
+  padding: var(--dm-space-6) var(--dm-space-4);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.login-tagline {
+  margin: -0.75rem 0 var(--dm-space-5);
+  text-align: center;
+  color: var(--dm-ink-soft);
+  font-size: 0.95rem;
 }
 
 .login-card {
@@ -635,22 +647,50 @@ select {
   font-size: 0.9rem;
 }
 
+/*
+ * `.done-button` confirms (check connection, join); `.button` is the quieter
+ * companion (open a modal, cancel). Both were the same slate blue, which left
+ * the card with no action hierarchy and matched nothing else in the theme.
+ * The hover rule was also `.done-button :hover` — a descendant selector that
+ * never matched the button itself.
+ */
 .button,
 .done-button {
-  padding: 0.5rem 1rem;
-  background-color: rgba(53, 73, 94, 0.9);
-  border: 1px solid #4a575e;
-  border-radius: 4px;
-  color: white;
+  padding: var(--dm-space-2) var(--dm-space-4);
+  border-radius: var(--dm-radius-sm);
   cursor: pointer;
-  font-family: 'MedievalSharp', cursive;
+  font-family: var(--dm-font-display);
   font-weight: normal;
-  transition: background-color 0.3s ease;
+  transition:
+    background-color var(--dm-transition),
+    border-color var(--dm-transition);
 }
 
-.button:hover,
-.done-button :hover {
-  background-color: #4a575e;
+.done-button {
+  background-color: var(--dm-primary);
+  border: 1px solid var(--dm-border-strong);
+  color: var(--dm-primary-ink);
+}
+
+.done-button:hover:not(:disabled) {
+  background-color: var(--dm-primary-hover);
+}
+
+.button {
+  background-color: rgba(57, 36, 1, 0.14);
+  border: 1px solid rgba(57, 36, 1, 0.3);
+  color: var(--dm-ink);
+}
+
+.button:hover:not(:disabled) {
+  background-color: rgba(57, 36, 1, 0.24);
+  border-color: rgba(57, 36, 1, 0.45);
+}
+
+.button:disabled,
+.done-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .input-field {

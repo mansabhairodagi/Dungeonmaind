@@ -14,6 +14,7 @@ import { fetchConfig } from '@/api/backendConfigAPI.ts'
  * - `/config` – Backend LLM/transcription config (lazy-loaded)
  * - `/rulebook` – Rulebook viewer (lazy-loaded)
  * - `/timeline` – Session timeline (lazy-loaded, requires auth)
+ * - `/map` – Session geographic map (lazy-loaded, requires auth)
  */
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -54,6 +55,13 @@ const router = createRouter({
       path: '/timeline',
       name: 'timeline',
       component: () => import('../views/TimelineView.vue'),
+      meta: { requiresAuth: true },
+    },
+    /** Map page – view places and journey links for the session. */
+    {
+      path: '/map',
+      name: 'map',
+      component: () => import('../views/MapView.vue'),
       meta: { requiresAuth: true },
     },
   ],

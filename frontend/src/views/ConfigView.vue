@@ -124,7 +124,7 @@ function cancelSubmit() {
 </template>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=MedievalSharp&display=swap');
+/* MedievalSharp is self-hosted and declared once in `assets/styles.css`. */
 
 .config-page {
   max-width: 600px;

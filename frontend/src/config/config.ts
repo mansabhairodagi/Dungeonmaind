@@ -32,6 +32,7 @@ export const SERVER_CONFIG = {
     RENAME_SESSION: '/exportImport/renameSession',
     TIMELINE_EVENTS: '/timeline/events',
     TIMELINE_GENERATE: '/timeline/generate',
+    MAP: '/map',
   },
 }
 

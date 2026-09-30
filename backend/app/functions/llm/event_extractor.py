@@ -9,7 +9,7 @@ from urllib.request import Request, urlopen
 from app.domain.models import TimelineEvent, TimelineEventType
 from app.functions.embedding.entity_extractor import (
     _dedupe_preserving_order,
-    _extract_entities_with_local_llm,
+    extract_entities_hybrid,
 )
 from app.functions.llm.ollama_auth import ollama_headers
 
@@ -408,7 +408,7 @@ def extract_events_from_text(
     player_id: str | None = None,
 ) -> list[TimelineEvent]:
     """Extract timeline events from a single text chunk using an LLM."""
-    entities = _extract_entities_with_local_llm(text)
+    entities = extract_entities_hybrid(text)
 
     if not text.strip():
         return []

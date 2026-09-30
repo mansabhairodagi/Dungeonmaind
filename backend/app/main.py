@@ -5,13 +5,8 @@ and handles startup/shutdown lifecycle for ChromaDB embedding.
 """
 
 import asyncio
-import sys
-
-# On windows its possible to run into race conditions when using asyncio.
-# Setting the EventLoopPolicy here will prevent async race conditions.
-if sys.platform.startswith('win'):
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 import logging
+import sys
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -30,6 +25,7 @@ from app.api.routers import (
     timeline,
     ws_players,
 )
+from app.api.routers import map as map_router
 from app.core.config import settings
 from app.functions.embedding.embedding_model import (
     delete_chromadb,
@@ -38,6 +34,11 @@ from app.functions.embedding.embedding_model import (
     has_rulebook_embeddings,
     read_text_files,
 )
+
+# On windows its possible to run into race conditions when using asyncio.
+# Setting the EventLoopPolicy here will prevent async race conditions.
+if sys.platform.startswith('win'):
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 # List of available api endpoints
 all_routers = [
@@ -51,6 +52,7 @@ all_routers = [
     (rulebook_markdown.router, '/rulebook', ['rulebook']),
     (export_import_session.router, '/exportImport', ['exportImport']),
     (timeline.router, '/timeline', ['timeline']),
+    (map_router.router, '/map', ['map']),
 ]
 
 # 192.168.x.x und beliebige localhost-Ports zulassen

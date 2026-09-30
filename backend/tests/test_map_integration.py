@@ -81,12 +81,10 @@ class MapIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual([edge.id for edge in payload.edges], ['edge_1', 'edge_2'])
         self.assertEqual(
-            (payload.edges[0].from_location_id, payload.edges[0].to_location_id),
-            ('loc_1', 'loc_2'),
+            (payload.edges[0].from_location_id, payload.edges[0].to_location_id), ('loc_1', 'loc_2')
         )
         self.assertEqual(
-            (payload.edges[1].from_location_id, payload.edges[1].to_location_id),
-            ('loc_2', 'loc_3'),
+            (payload.edges[1].from_location_id, payload.edges[1].to_location_id), ('loc_2', 'loc_3')
         )
         pairs = {(edge.from_location_id, edge.to_location_id) for edge in payload.edges}
         self.assertNotIn(('loc_3', 'loc_3'), pairs)
@@ -128,9 +126,7 @@ class MapIntegrationTests(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(
-            [event['id'] for event in response.json()['events']], ['evt_3', 'evt_4']
-        )
+        self.assertEqual([event['id'] for event in response.json()['events']], ['evt_3', 'evt_4'])
 
     async def test_event_locations_click_through_resolves_after_generate(self) -> None:
         await self.client.post('/map/generate', json={'session_id': SESSION_ID})
@@ -181,9 +177,7 @@ class MapIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_regenerate_overwrites_the_previously_saved_map(self) -> None:
         await self.client.post('/map/generate', json={'session_id': SESSION_ID})
-        await timeline_store.add_events(
-            [_event('evt_5', ['Dragon Spire'], order=5)]
-        )
+        await timeline_store.add_events([_event('evt_5', ['Dragon Spire'], order=5)])
 
         response = await self.client.post('/map/generate', json={'session_id': SESSION_ID})
 

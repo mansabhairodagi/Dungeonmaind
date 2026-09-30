@@ -75,7 +75,9 @@ function specificity(name: string): [number, number] {
 function isMoreSpecific(left: string, right: string): boolean {
   const leftScore = specificity(left)
   const rightScore = specificity(right)
-  return leftScore[0] > rightScore[0] || (leftScore[0] === rightScore[0] && leftScore[1] > rightScore[1])
+  return (
+    leftScore[0] > rightScore[0] || (leftScore[0] === rightScore[0] && leftScore[1] > rightScore[1])
+  )
 }
 
 function pickCanonical(names: string[]): string {
@@ -189,12 +191,12 @@ const EDGE_TYPE_RANK: Record<MapEdge['type'], number> = {
 }
 
 /** Infer a map-edge type from event wording until the real linker exists. */
-export function inferEdgeType(event: Pick<TimelineEventOut, 'title' | 'description' | 'event_type'>): MapEdge['type'] {
+export function inferEdgeType(
+  event: Pick<TimelineEventOut, 'title' | 'description' | 'event_type'>,
+): MapEdge['type'] {
   const text = `${event.title} ${event.description}`.toLowerCase()
   if (
-    /\b(?:north of|south of|east of|west of|leading north|north towards|to the north)\b/.test(
-      text,
-    )
+    /\b(?:north of|south of|east of|west of|leading north|north towards|to the north)\b/.test(text)
   ) {
     return 'north_of'
   }

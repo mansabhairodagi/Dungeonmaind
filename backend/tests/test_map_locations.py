@@ -121,9 +121,7 @@ class MapLocationsApiTests(unittest.IsolatedAsyncioTestCase):
         payload = await list_event_locations(event_id='evt_5', session_id='sess-1')
 
         self.assertEqual(payload.total, 2)
-        self.assertEqual(
-            [location.id for location in payload.locations], ['loc_1', 'loc_2']
-        )
+        self.assertEqual([location.id for location in payload.locations], ['loc_1', 'loc_2'])
         self.assertEqual(payload.locations[0].canonical_name, 'Velmora Crossing')
         self.assertEqual(payload.locations[1].canonical_name, 'Silver Lake')
 

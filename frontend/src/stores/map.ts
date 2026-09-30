@@ -25,8 +25,8 @@ export const useMapStore = defineStore('map', () => {
   const nodeCount = computed(() => nodes.value.length)
   const edgeCount = computed(() => edges.value.length)
 
-  const selectedNode = computed(() =>
-    nodes.value.find((node) => node.id === selectedPlaceId.value) ?? null,
+  const selectedNode = computed(
+    () => nodes.value.find((node) => node.id === selectedPlaceId.value) ?? null,
   )
 
   /**
@@ -54,8 +54,7 @@ export const useMapStore = defineStore('map', () => {
       dataSource.value = 'timeline'
 
       if (fallback.nodes.length === 0) {
-        const message =
-          apiError instanceof Error ? apiError.message : 'Map API unavailable'
+        const message = apiError instanceof Error ? apiError.message : 'Map API unavailable'
         error.value =
           message.includes('404') || message.includes('HTTP 404')
             ? null

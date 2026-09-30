@@ -41,19 +41,14 @@ class MapLocationsRouterTests(unittest.IsolatedAsyncioTestCase):
                 _event('evt_4', ['the tavern'], order=4),
             ]
         )
-        self.client = AsyncClient(
-            transport=ASGITransport(app=_map_app()),
-            base_url='http://test',
-        )
+        self.client = AsyncClient(transport=ASGITransport(app=_map_app()), base_url='http://test')
 
     async def asyncTearDown(self) -> None:
         await self.client.aclose()
         await timeline_store.clear_all()
 
     async def test_get_map_locations_matches_worked_example_contract(self) -> None:
-        response = await self.client.get(
-            '/map/locations', params={'session_id': SESSION_ID}
-        )
+        response = await self.client.get('/map/locations', params={'session_id': SESSION_ID})
 
         self.assertEqual(response.status_code, 200)
         payload = MapLocationListResponse.model_validate(response.json())
@@ -61,8 +56,7 @@ class MapLocationsRouterTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(payload.total, 3)
         self.assertEqual(len(payload.locations), 3)
         self.assertEqual(
-            [location.id for location in payload.locations],
-            ['loc_1', 'loc_2', 'loc_3'],
+            [location.id for location in payload.locations], ['loc_1', 'loc_2', 'loc_3']
         )
         self.assertEqual(payload.locations[0].canonical_name, 'Velmora Crossing')
         self.assertEqual(payload.locations[0].aliases, [])
@@ -148,9 +142,7 @@ class MapLocationsRouterTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.json()['detail'], 'Location not found')
 
     async def test_get_map_locations_returns_empty_list_for_unknown_session(self) -> None:
-        response = await self.client.get(
-            '/map/locations', params={'session_id': 'missing'}
-        )
+        response = await self.client.get('/map/locations', params={'session_id': 'missing'})
 
         self.assertEqual(response.status_code, 200)
         payload = MapLocationListResponse.model_validate(response.json())

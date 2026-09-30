@@ -12,10 +12,7 @@ from app.functions.geo.place_resolver import (
 
 def _event(event_id: str, places: list[str], order: int, session_id: str = 'sess-1'):
     return SimpleNamespace(
-        id=event_id,
-        session_id=session_id,
-        order=order,
-        location_entities=places,
+        id=event_id, session_id=session_id, order=order, location_entities=places
     )
 
 
@@ -25,16 +22,12 @@ class PlaceResolverTests(unittest.TestCase):
 
     def test_resolve_location_entities_dedupes_case_insensitive(self) -> None:
         raw = ['  Silver Lake ', 'silver lake', 'Silver Lake', 'Berlin', ' berlin ']
-        self.assertEqual(
-            resolve_location_entities(raw),
-            ['Silver Lake', 'Berlin'],
-        )
+        self.assertEqual(resolve_location_entities(raw), ['Silver Lake', 'Berlin'])
 
     def test_resolve_location_entities_preserves_first_seen_order(self) -> None:
         raw = ['Berlin', 'Silver Lake', 'berlin', 'Oakwood Village']
         self.assertEqual(
-            resolve_location_entities(raw),
-            ['Berlin', 'Silver Lake', 'Oakwood Village'],
+            resolve_location_entities(raw), ['Berlin', 'Silver Lake', 'Oakwood Village']
         )
 
     def test_resolve_location_entities_skips_empty_values(self) -> None:
@@ -42,13 +35,10 @@ class PlaceResolverTests(unittest.TestCase):
 
     def test_resolve_location_entities_collapses_the_tavern_into_ye_olde_tavern(self) -> None:
         self.assertEqual(
-            resolve_location_entities(['Ye Olde Tavern', 'the tavern']),
-            ['Ye Olde Tavern'],
+            resolve_location_entities(['Ye Olde Tavern', 'the tavern']), ['Ye Olde Tavern']
         )
 
-    def test_resolve_location_entities_normalizes_casing_and_whitespace_before_dedupe(
-        self,
-    ) -> None:
+    def test_resolve_location_entities_normalizes_casing_and_whitespace_before_dedupe(self) -> None:
         self.assertEqual(
             resolve_location_entities(
                 ['  Ye   Olde Tavern ', 'ye olde tavern', '  THE   tavern  ']
@@ -58,8 +48,7 @@ class PlaceResolverTests(unittest.TestCase):
 
     def test_resolve_location_entities_keeps_longer_name_when_short_name_comes_first(self) -> None:
         self.assertEqual(
-            resolve_location_entities(['the tavern', 'Ye Olde Tavern']),
-            ['Ye Olde Tavern'],
+            resolve_location_entities(['the tavern', 'Ye Olde Tavern']), ['Ye Olde Tavern']
         )
 
     def test_resolve_location_entities_does_not_merge_ambiguous_short_names(self) -> None:
@@ -70,14 +59,12 @@ class PlaceResolverTests(unittest.TestCase):
 
     def test_resolve_location_entities_does_not_merge_inn_into_inner_sanctum(self) -> None:
         self.assertEqual(
-            resolve_location_entities(['the inn', 'Inner Sanctum']),
-            ['the inn', 'Inner Sanctum'],
+            resolve_location_entities(['the inn', 'Inner Sanctum']), ['the inn', 'Inner Sanctum']
         )
 
     def test_resolve_location_entities_merges_unlisted_place_names(self) -> None:
         self.assertEqual(
-            resolve_location_entities(['Black Gloomhold', 'the gloomhold']),
-            ['Black Gloomhold'],
+            resolve_location_entities(['Black Gloomhold', 'the gloomhold']), ['Black Gloomhold']
         )
 
     def test_resolve_location_entities_does_not_merge_ambiguous_unlisted_names(self) -> None:
@@ -255,8 +242,7 @@ class MapLocationResolverTests(unittest.TestCase):
             _event('evt_4', ['the tavern'], order=4),
         ]
         self.assertEqual(
-            resolve_map_locations(events)[0].event_ids,
-            resolve_locations(events)[0].event_ids,
+            resolve_map_locations(events)[0].event_ids, resolve_locations(events)[0].event_ids
         )
 
 

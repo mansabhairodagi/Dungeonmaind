@@ -134,9 +134,7 @@ const selectedLinks = computed(() => {
 const selectedEdge = computed(() => {
   if (!selectedEdgeKey.value) return null
   return (
-    mapStore.edges.find(
-      (edge, index) => edgeKey(edge, index) === selectedEdgeKey.value,
-    ) ?? null
+    mapStore.edges.find((edge, index) => edgeKey(edge, index) === selectedEdgeKey.value) ?? null
   )
 })
 
@@ -469,10 +467,7 @@ watch(
                     {{ edgeLabels[edge.type] || 'Linked' }}: {{ nodeLabel(edge.from) }} →
                     {{ nodeLabel(edge.to) }}
                   </title>
-                  <path
-                    :d="edgePath(edge.from, edge.to)"
-                    class="edge-hit"
-                  />
+                  <path :d="edgePath(edge.from, edge.to)" class="edge-hit" />
                   <path
                     :d="edgePath(edge.from, edge.to)"
                     class="edge-line"
@@ -514,10 +509,8 @@ watch(
                   @keyup.enter="handleSelectPlace(node.id)"
                 >
                   <title>
-                    {{ node.label
-                    }}<template v-if="node.aliases?.length">
-                      (also: {{ node.aliases.join(', ') }})</template
-                    >
+                    {{ node.label }}<template v-if="node.aliases?.length"> (also:
+                    {{ node.aliases.join(', ') }})</template >
                   </title>
 
                   <text
@@ -595,8 +588,8 @@ watch(
             <div v-if="selectedEdge" class="link-card">
               <p class="sidebar-eyebrow">Selected path</p>
               <p>
-                {{ edgeLabels[selectedEdge.type] }}:
-                {{ nodeLabel(selectedEdge.from) }} → {{ nodeLabel(selectedEdge.to) }}
+                {{ edgeLabels[selectedEdge.type] }}: {{ nodeLabel(selectedEdge.from) }} →
+                {{ nodeLabel(selectedEdge.to) }}
               </p>
             </div>
 
@@ -604,11 +597,7 @@ watch(
               <p class="sidebar-eyebrow">Connected paths</p>
               <ul class="link-list">
                 <li v-for="link in selectedLinks" :key="link.key">
-                  <button
-                    type="button"
-                    class="link-chip"
-                    @click="handleSelectPlace(link.otherId)"
-                  >
+                  <button type="button" class="link-chip" @click="handleSelectPlace(link.otherId)">
                     {{ link.label }} {{ link.direction }} {{ truncateLabel(link.otherLabel, 20) }}
                   </button>
                 </li>
@@ -997,11 +986,7 @@ watch(
 }
 
 .legend-item i.dashed {
-  background-image: repeating-linear-gradient(
-    90deg,
-    currentColor 0 4px,
-    transparent 4px 8px
-  );
+  background-image: repeating-linear-gradient(90deg, currentColor 0 4px, transparent 4px 8px);
 }
 
 .map-sidebar {

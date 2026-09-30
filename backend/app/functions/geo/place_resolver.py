@@ -46,10 +46,7 @@ def _is_contiguous_subsequence(shorter: list[str], longer: list[str]) -> bool:
     if not shorter or not longer or len(shorter) > len(longer):
         return False
     span = len(shorter)
-    return any(
-        longer[index : index + span] == shorter
-        for index in range(len(longer) - span + 1)
-    )
+    return any(longer[index : index + span] == shorter for index in range(len(longer) - span + 1))
 
 
 def _edit_distance(left: str, right: str) -> int:
@@ -237,9 +234,7 @@ def resolve_location_entities(location_entities: list[str]) -> list[str]:
     return [_pick_canonical(cluster) for cluster in clusters]
 
 
-def resolve_locations(
-    events: Sequence[Any], session_id: str | None = None
-) -> list[MapLocation]:
+def resolve_locations(events: Sequence[Any], session_id: str | None = None) -> list[MapLocation]:
     """Resolve an ordered session timeline into one MapLocation per place.
 
     Wires together place-name normalization, exact-match dedupe, and
@@ -315,8 +310,6 @@ def resolve_locations(
     return locations
 
 
-def resolve_map_locations(
-    events: list[Any], session_id: str | None = None
-) -> list[MapLocation]:
+def resolve_map_locations(events: list[Any], session_id: str | None = None) -> list[MapLocation]:
     """Backward-compatible alias for :func:`resolve_locations`."""
     return resolve_locations(events, session_id=session_id)

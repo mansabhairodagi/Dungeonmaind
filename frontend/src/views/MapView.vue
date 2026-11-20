@@ -9,6 +9,7 @@ import { useMapStore } from '@/stores/map'
 import { useSessionStore } from '@/stores/session'
 import { useTimelineStore } from '@/stores/timeline'
 import type { MapEdge, MapEdgeType } from '@/api/mapAPI'
+import { relationshipLayout } from '@/utils/mapLayout'
 import MapEditPanel from '@/views/MapEditPanel.vue'
 
 const router = useRouter()
@@ -43,37 +44,8 @@ const edgeColors: Record<MapEdgeType, string> = {
   other: '#8a7a4a',
 }
 
-/**
- * Sequential "journey" layout: places are laid out in visit order along a
- * serpentine path (left-to-right, then wrapping back), so the eye follows
- * Start → … → End instead of an orderless ring.
- */
-const layout = computed(() => {
-  const nodes = mapStore.nodes
-  const positions = new Map<string, { x: number; y: number }>()
-  const count = nodes.length
-  if (count === 0) return { positions, width: 800, height: 460 }
-
-  const cols = Math.min(count, count <= 3 ? count : 4)
-  const rows = Math.ceil(count / cols)
-  const cellW = 250
-  const cellH = 200
-  const padX = 130
-  const padY = 130
-
-  nodes.forEach((node, index) => {
-    const row = Math.floor(index / cols)
-    const colInRow = index % cols
-    const serpCol = row % 2 === 0 ? colInRow : cols - 1 - colInRow
-    positions.set(node.id, { x: padX + serpCol * cellW, y: padY + row * cellH })
-  })
-
-  return {
-    positions,
-    width: Math.max(padX * 2 + (cols - 1) * cellW, 520),
-    height: Math.max(padY * 2 + (rows - 1) * cellH + 40, 280),
-  }
-})
+/** Places laid out by their spatial relationships, falling back to visit order. */
+const layout = computed(() => relationshipLayout(mapStore.nodes, mapStore.edges))
 
 const nodePositions = computed(() => layout.value.positions)
 const canvasAspect = computed(() => `${layout.value.width} / ${layout.value.height}`)

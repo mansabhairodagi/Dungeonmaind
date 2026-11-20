@@ -40,14 +40,41 @@ class TranscriptSegment:
 class TranscriptStore:
     """Async-safe in-memory store for transcript segments, per session.
 
+    Segment times are on one clock per session: each uploaded or recorded
+    chunk is placed after the audio already received for that session, so
+    a start time points at the same moment in the session's full recording.
+
     Attributes:
         _segments: Dict mapping session ID to its segments in arrival order.
+        _audio_end: Dict mapping session ID to the end (seconds) of the audio
+            received so far.
         _lock: Async lock for thread-safe access.
     """
 
     def __init__(self) -> None:
         self._segments: dict[str, list[TranscriptSegment]] = {}
+        self._audio_end: dict[str, float] = {}
         self._lock = asyncio.Lock()
+
+    async def reserve_audio_span(self, session_id: str, seconds: float) -> float:
+        """Place a newly received audio chunk at the end of the session's audio.
+
+        A session with no recorded clock yet (for example one loaded from
+        transcript.json) continues after its last saved segment.
+
+        Args:
+            session_id: The session identifier.
+            seconds: Length of the new chunk in seconds.
+
+        Returns:
+            Offset in seconds where the new chunk starts in the session.
+        """
+        async with self._lock:
+            offset = self._audio_end.get(session_id)
+            if offset is None:
+                offset = max((seg.end for seg in self._segments.get(session_id, [])), default=0.0)
+            self._audio_end[session_id] = offset + max(0.0, seconds)
+            return offset
 
     async def add_segments(self, session_id: str, segments: list[TranscriptSegment]) -> None:
         """Append segments to a session's transcript.
@@ -80,6 +107,7 @@ class TranscriptStore:
         """
         async with self._lock:
             self._segments[session_id] = list(segments)
+            self._audio_end.pop(session_id, None)
 
     async def rename_session(self, old_session_id: str, new_session_id: str) -> None:
         """Move a session's transcript to a new session ID.
@@ -95,6 +123,9 @@ class TranscriptStore:
             return
         async with self._lock:
             self._segments[new_session_id] = self._segments.pop(old_session_id, [])
+            self._audio_end.pop(new_session_id, None)
+            if old_session_id in self._audio_end:
+                self._audio_end[new_session_id] = self._audio_end.pop(old_session_id)
 
     async def clear_session(self, session_id: str) -> int:
         """Clear a session's transcript.
@@ -106,6 +137,7 @@ class TranscriptStore:
             The number of segments removed.
         """
         async with self._lock:
+            self._audio_end.pop(session_id, None)
             return len(self._segments.pop(session_id, []))
 
 

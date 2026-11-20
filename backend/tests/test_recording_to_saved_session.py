@@ -33,7 +33,7 @@ from app.domain.models import Group, Role, TimelineEvent, TimelineEventType
 from app.domain.session_state import session_registry
 from app.domain.store import store
 from app.domain.timeline_store import timeline_store
-from app.domain.transcript_store import transcript_store
+from app.domain.transcript_store import TranscriptSegment, transcript_store
 from app.functions.embedding.entity_extractor import ExtractedEntities
 from app.functions.process_audio_data import transcribe_audio as pipeline
 
@@ -481,6 +481,67 @@ class RecordingToSavedSessionFlowTests(PipelineTestCase):
             [location['canonical_name'] for location in body['locations']],
             ['Neverwinter', 'Phandalin'],
         )
+
+
+class FakeAudio:
+    """A decoded 16 kHz audio array of a given length, as whisperx.load_audio returns."""
+
+    def __init__(self, seconds: float) -> None:
+        self.shape = (int(seconds * 16000),)
+
+    def __len__(self) -> int:
+        return self.shape[0]
+
+
+class SessionClockTests(PipelineTestCase):
+    """Segment times from every chunk point into one session-long recording."""
+
+    async def test_second_chunk_starts_after_the_first(self) -> None:
+        await pipeline.transcribe_audio(b'audio', 'audio/webm', session_id=SAVED_ID)
+        await pipeline.transcribe_audio(b'audio', 'audio/webm', session_id=SAVED_ID)
+
+        starts = [segment.start for segment in await transcript_store.get_segments(SAVED_ID)]
+        # The fake audio cannot be measured, so chunk 1 is as long as its last segment (8.2s).
+        self.assertEqual(starts, [0.4, 4.0, 8.4, 13.2])
+        events = await timeline_store.get_session_events(SAVED_ID)
+        self.assertEqual([event.timestamp for event in events], [0.4, 8.4, 13.2])
+
+    async def test_measured_chunk_length_is_used_when_available(self) -> None:
+        self.whisper.load_audio = lambda path: FakeAudio(30.0)
+        await pipeline.transcribe_audio(b'audio', 'audio/webm', session_id=SAVED_ID)
+        await pipeline.transcribe_audio(b'audio', 'audio/webm', session_id=SAVED_ID)
+
+        starts = [segment.start for segment in await transcript_store.get_segments(SAVED_ID)]
+        self.assertEqual(starts, [0.4, 4.0, 30.2, 35.0])
+
+    async def test_sessions_keep_separate_clocks(self) -> None:
+        await pipeline.transcribe_audio(b'audio', 'audio/webm', session_id=SAVED_ID)
+        await pipeline.transcribe_audio(b'audio', 'audio/webm', session_id=UNSAVED)
+
+        starts = [segment.start for segment in await transcript_store.get_segments(UNSAVED)]
+        self.assertEqual(starts, [0.2, 5.0])
+
+
+class TranscriptStoreClockTests(unittest.IsolatedAsyncioTestCase):
+    async def asyncTearDown(self) -> None:
+        await _clear('clock-a', 'clock-b')
+
+    async def test_reserved_spans_follow_each_other(self) -> None:
+        self.assertEqual(await transcript_store.reserve_audio_span('clock-a', 30.0), 0.0)
+        self.assertEqual(await transcript_store.reserve_audio_span('clock-a', 12.5), 30.0)
+        self.assertEqual(await transcript_store.reserve_audio_span('clock-a', 1.0), 42.5)
+
+    async def test_loaded_transcript_continues_after_its_last_segment(self) -> None:
+        await transcript_store.replace_session(
+            'clock-a', [TranscriptSegment(start=50.0, end=61.0, text='x')]
+        )
+        self.assertEqual(await transcript_store.reserve_audio_span('clock-a', 5.0), 61.0)
+
+    async def test_clock_moves_with_a_renamed_session(self) -> None:
+        await transcript_store.reserve_audio_span('clock-a', 20.0)
+        await transcript_store.rename_session('clock-a', 'clock-b')
+        self.assertEqual(await transcript_store.reserve_audio_span('clock-b', 1.0), 20.0)
+        self.assertEqual(await transcript_store.reserve_audio_span('clock-a', 1.0), 0.0)
 
 
 if __name__ == '__main__':

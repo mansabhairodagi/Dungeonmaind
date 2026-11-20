@@ -167,6 +167,24 @@ def ensure_transcription_models_loaded() -> None:
         print('Transcription model loaded (diarization disabled).')
 
 
+# whisperx.load_audio always resamples to 16 kHz mono.
+_WHISPER_SAMPLE_RATE = 16000
+
+
+def _shift_segments(segments: list, seconds: float) -> None:
+    """Move segment and word times by ``seconds``, in place.
+
+    Puts a chunk's times on the session clock, so a segment start points
+    at the same moment in the session's full recording. Times are rounded
+    to milliseconds.
+    """
+    for seg in segments:
+        for item in [seg, *(seg.get('words') or [])]:
+            for key in ('start', 'end'):
+                if key in item:
+                    item[key] = round(float(item[key]) + seconds, 3)
+
+
 async def _store_transcript(segments: list, session_id: str) -> None:
     """Keep the transcribed segments for this session so they are saved as transcript.json."""
     stored = []
@@ -284,6 +302,14 @@ async def _transcribe_raw_session_audio(
             print(f'[{seg["start"]:.2f}s - {seg["end"]:.2f}s] {seg["speaker"]}: {seg["text"]}')
 
         filtered_segments = result_aligned.get('segments', [])
+        if hasattr(audio, 'shape'):
+            chunk_seconds = len(audio) / _WHISPER_SAMPLE_RATE
+        else:
+            chunk_seconds = max(
+                (float(seg.get('end', 0.0)) for seg in filtered_segments), default=0.0
+            )
+        offset = await transcript_store.reserve_audio_span(session_id, chunk_seconds)
+        _shift_segments(filtered_segments, offset)
         texts = []
         speakers = []
         start_times = []
@@ -454,6 +480,9 @@ async def transcribe_audio(
 
         # remove voice notes
         filtered_segments = [seg for seg in resultB['segments'] if seg['start'] > intro_duration_s]
+        # Drop the voiceprint intro from the times and place the chunk on the session clock.
+        offset = await transcript_store.reserve_audio_span(session_id, len(session_audio) / 1000)
+        _shift_segments(filtered_segments, offset - intro_duration_s)
 
         # 7. Embed the resulting text
         texts = []

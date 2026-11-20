@@ -20,6 +20,8 @@ from app.base_models.map_base_models import (
     MapGraphResponse,
     MapLocationListResponse,
     MapLocationOut,
+    MapMentionListResponse,
+    MapMentionOut,
     MapMergeRequest,
     MapRelationshipTagRequest,
     MapRenameRequest,
@@ -214,6 +216,63 @@ async def list_location_events(
         session_id=session_id,
         events=[timeline_event_to_out(event) for event in linked],
         total=len(linked),
+    )
+
+
+@router.get('/locations/{location_id}/mentions', response_model=MapMentionListResponse)
+async def list_location_mentions(
+    location_id: str, session_id: str = Query('default', description='Session identifier')
+) -> MapMentionListResponse:
+    """List the moments in the recording where a place was mentioned.
+
+    Scans transcript.json segments for the place's name and aliases (after
+    DM renames and merges, so old spoken names still count). When no line
+    names it, the timestamps of the timeline events linked to the place are
+    returned instead. Used to jump the recording to a place on click.
+
+    Args:
+        location_id: Resolved place id (loc_1, loc_2, ...).
+        session_id: Session identifier (default 'default').
+
+    Returns:
+        MapMentionListResponse with mentions ordered by start time.
+
+    Raises:
+        HTTPException 404: If the location is not found in the session.
+    """
+    session_id = session_registry.resolve(session_id)
+    events, locations = await _session_events_and_locations(session_id)
+    location = next((item for item in locations if item.id == location_id), None)
+    if location is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail='Location not found')
+
+    mentions = [
+        MapMentionOut(
+            start=segment.start, end=segment.end, text=segment.text, speaker=segment.speaker
+        )
+        for segment in await transcript_store.get_segments(session_id)
+        if any(
+            mention.location_id == location_id
+            for mention in find_place_mentions(segment.text, locations)
+        )
+    ]
+    if not mentions:
+        events_by_id = {event.id: event for event in events}
+        for event_id in location.event_ids:
+            event = events_by_id.get(event_id)
+            if event is not None:
+                mentions.append(
+                    MapMentionOut(
+                        start=event.timestamp,
+                        end=event.timestamp,
+                        text=event.title,
+                        speaker=event.speaker_name or 'unknown',
+                        source='event',
+                    )
+                )
+    mentions.sort(key=lambda item: item.start)
+    return MapMentionListResponse(
+        session_id=session_id, location_id=location_id, mentions=mentions, total=len(mentions)
     )
 
 

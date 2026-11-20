@@ -117,6 +117,34 @@ class MapTranscriptResponse(BaseModel):
     total: int
 
 
+class MapMentionOut(BaseModel):
+    """Response model for one moment a place was mentioned in the recording.
+
+    Attributes:
+        start: Seconds into the session recording where the mention starts.
+        end: Seconds where it ends.
+        text: The transcript line (or event title for timeline fallbacks).
+        speaker: Speaker label or player name.
+        source: 'transcript' when read from transcript.json, 'event' when
+            taken from a timeline event because no transcript line matched.
+    """
+
+    start: float
+    end: float
+    text: str
+    speaker: str = 'unknown'
+    source: str = 'transcript'
+
+
+class MapMentionListResponse(BaseModel):
+    """Response model for the moments a place was mentioned, earliest first."""
+
+    session_id: str
+    location_id: str
+    mentions: list[MapMentionOut]
+    total: int
+
+
 class MapRelationshipTagRequest(BaseModel):
     """Request model for a DM tagging a spatial relationship on a transcript line.
 

@@ -73,8 +73,3 @@ def find_place_mentions(text: str, locations: Sequence[MapLocation]) -> list[Pla
             continue
         mentions.append(candidate)
     return sorted(mentions, key=lambda item: item.start)
-
-
-def location_is_mentioned(text: str, location: MapLocation) -> bool:
-    """Return whether a single place is named anywhere in the text."""
-    return any(_name_pattern(name).search(text) for name in _name_variants(location))

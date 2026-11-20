@@ -105,6 +105,8 @@ class MapEdge:
         relationship: Kind of link (see MapEdgeRelationship).
         evidence_event_ids: Timeline event IDs that support this edge.
         order: 0-based position of the edge in the inferred journey.
+        evidence_times: Start times (seconds) of the transcript segments the
+            relationship was read from. Empty for timeline-inferred edges.
     """
 
     id: str
@@ -114,11 +116,16 @@ class MapEdge:
     relationship: MapEdgeRelationship = field(default_factory=lambda: MapEdgeRelationship.travel)
     evidence_event_ids: list[str] = field(default_factory=list)
     order: int = 0
+    evidence_times: list[float] = field(default_factory=list)
 
     def to_dict(self) -> dict:
-        """Serialize this edge for timeline/map export."""
+        """Serialize this edge for timeline/map export.
+
+        ``evidence_times`` is only written when present, so map.json files
+        without spoken relationships keep their earlier shape.
+        """
         relationship = self.relationship
-        return {
+        data = {
             'id': self.id,
             'session_id': self.session_id,
             'from_location_id': self.from_location_id,
@@ -129,6 +136,9 @@ class MapEdge:
             'evidence_event_ids': list(self.evidence_event_ids),
             'order': self.order,
         }
+        if self.evidence_times:
+            data['evidence_times'] = list(self.evidence_times)
+        return data
 
     @classmethod
     def from_dict(cls, data: dict) -> MapEdge:
@@ -141,4 +151,5 @@ class MapEdge:
             relationship=MapEdgeRelationship(data.get('relationship', 'travel')),
             evidence_event_ids=list(data.get('evidence_event_ids', [])),
             order=int(data.get('order', 0)),
+            evidence_times=[float(value) for value in data.get('evidence_times', [])],
         )

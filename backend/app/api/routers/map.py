@@ -33,7 +33,7 @@ from app.domain.models import Player as DomainPlayer
 from app.domain.models import TimelineEvent
 from app.domain.session_state import session_registry
 from app.domain.timeline_store import timeline_store
-from app.functions.geo.build_map import generate_map
+from app.functions.geo.build_map import generate_map, infer_session_edges
 from app.functions.geo.link_builder import build_edges
 from app.functions.geo.map_overrides import (
     apply_map_overrides,
@@ -70,7 +70,7 @@ async def _raw_session_graph(
         )
         return events, locations, edges
     locations = resolve_locations(events, session_id=session_id)
-    return events, locations, build_edges(locations, events, session_id=session_id)
+    return events, locations, await infer_session_edges(session_id, locations, events)
 
 
 async def _session_graph(

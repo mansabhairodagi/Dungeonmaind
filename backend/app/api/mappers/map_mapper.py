@@ -42,4 +42,5 @@ def map_edge_to_out(edge: MapEdge) -> MapEdgeOut:
         relationship=edge.relationship.value,
         evidence_event_ids=list(edge.evidence_event_ids),
         order=edge.order,
+        evidence_times=list(edge.evidence_times),
     )

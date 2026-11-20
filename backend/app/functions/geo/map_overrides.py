@@ -264,7 +264,11 @@ def _copy_location(location: MapLocation) -> MapLocation:
 
 
 def _copy_edge(edge: MapEdge) -> MapEdge:
-    return replace(edge, evidence_event_ids=list(edge.evidence_event_ids))
+    return replace(
+        edge,
+        evidence_event_ids=list(edge.evidence_event_ids),
+        evidence_times=list(edge.evidence_times),
+    )
 
 
 def _same_connection(
@@ -432,6 +436,7 @@ def _retarget_edges(
                 from_location_id=from_id,
                 to_location_id=to_id,
                 evidence_event_ids=list(edge.evidence_event_ids),
+                evidence_times=list(edge.evidence_times),
             )
             seen[key] = updated
             collapsed.append(updated)
@@ -439,6 +444,9 @@ def _retarget_edges(
         for event_id in edge.evidence_event_ids:
             if event_id not in existing.evidence_event_ids:
                 existing.evidence_event_ids.append(event_id)
+        for seconds in edge.evidence_times:
+            if seconds not in existing.evidence_times:
+                existing.evidence_times.append(seconds)
     return _resequence_edges(collapsed)
 
 

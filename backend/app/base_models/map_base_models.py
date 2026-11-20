@@ -45,6 +45,8 @@ class MapEdgeOut(BaseModel):
             north_of or east_of).
         evidence_event_ids: Timeline event IDs that support this edge.
         order: 0-based position of the edge in the inferred journey.
+        evidence_times: Transcript segment start times (seconds) the
+            relationship was read from.
     """
 
     id: str
@@ -54,6 +56,7 @@ class MapEdgeOut(BaseModel):
     relationship: str
     evidence_event_ids: list[str] = Field(default_factory=list)
     order: int = 0
+    evidence_times: list[float] = Field(default_factory=list)
 
 
 class MapEdgeListResponse(BaseModel):

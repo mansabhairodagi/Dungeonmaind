@@ -41,7 +41,8 @@ class MapEdgeOut(BaseModel):
         session_id: Session this edge belongs to.
         from_location_id: Source location id (loc_1, loc_2, ...).
         to_location_id: Destination location id.
-        relationship: Kind of link (travel or proximity).
+        relationship: Kind of link (travel, proximity, near, inside,
+            north_of or east_of).
         evidence_event_ids: Timeline event IDs that support this edge.
         order: 0-based position of the edge in the inferred journey.
     """

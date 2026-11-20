@@ -13,7 +13,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from app.core.config import settings
-from app.domain.map_edge import MapEdge, MapEdgeRelationship
+from app.domain.map_edge import MapEdge, MapEdgeRelationship, canonical_connection
 from app.domain.map_location import MapLocation
 from app.domain.map_overrides import (
     MapConnectionChange,
@@ -154,7 +154,15 @@ def record_added_connection(
     relationship: str = 'travel',
     path: Path | None = None,
 ) -> SessionMapOverrides:
-    """Store an added connection, cancelling a matching removal if present."""
+    """Store an added connection, cancelling a matching removal if present.
+
+    The relationship is stored in canonical form, so "south_of" A->B is
+    saved as "north_of" B->A.
+    """
+    from_location_id, to_location_id, kind = canonical_connection(
+        from_location_id, to_location_id, relationship
+    )
+    relationship = kind.value
     overrides = load_session_overrides(session_id, path)
     overrides.removed_connections = [
         item
@@ -184,6 +192,11 @@ def record_removed_connection(
     path: Path | None = None,
 ) -> SessionMapOverrides:
     """Store a removed connection, cancelling a matching addition if present."""
+    if relationship is not None:
+        from_location_id, to_location_id, kind = canonical_connection(
+            from_location_id, to_location_id, relationship
+        )
+        relationship = kind.value
     overrides = load_session_overrides(session_id, path)
     overrides.added_connections = [
         item
@@ -257,18 +270,16 @@ def _copy_edge(edge: MapEdge) -> MapEdge:
 def _same_connection(
     item: MapConnectionChange, from_id: str, to_id: str, relationship: str | None
 ) -> bool:
-    if item.from_location_id != from_id or item.to_location_id != to_id:
-        return False
     if relationship is None or item.relationship is None:
-        return True
-    return _normalize_relationship(item.relationship) == _normalize_relationship(relationship)
+        return item.from_location_id == from_id and item.to_location_id == to_id
+    return _canonical_change(item) == canonical_connection(from_id, to_id, relationship)
 
 
-def _normalize_relationship(value: str | None) -> MapEdgeRelationship:
-    token = (value or '').strip().lower()
-    if token in {'travel', 'traveled'}:
-        return MapEdgeRelationship.travel
-    return MapEdgeRelationship.proximity
+def _canonical_change(change: MapConnectionChange) -> tuple[str, str, MapEdgeRelationship]:
+    """Return a stored connection change in canonical direction and vocabulary."""
+    return canonical_connection(
+        change.from_location_id, change.to_location_id, change.relationship or 'travel'
+    )
 
 
 def _apply_rename(locations: list[MapLocation], rename: MapRename) -> None:
@@ -367,13 +378,11 @@ def _apply_added_connections(
     )
     next_edges = list(edges)
     for addition in additions:
-        from_id = addition.from_location_id
-        to_id = addition.to_location_id
+        from_id, to_id, relationship = _canonical_change(addition)
         if not from_id or not to_id or from_id == to_id:
             continue
         if from_id not in known_ids or to_id not in known_ids:
             continue
-        relationship = _normalize_relationship(addition.relationship or 'travel')
         if any(
             edge.from_location_id == from_id
             and edge.to_location_id == to_id
@@ -395,13 +404,14 @@ def _apply_added_connections(
 
 
 def _matches_edge(edge: MapEdge, change: MapConnectionChange) -> bool:
-    if edge.from_location_id != change.from_location_id:
-        return False
-    if edge.to_location_id != change.to_location_id:
-        return False
     if change.relationship is None:
-        return True
-    return edge.relationship == _normalize_relationship(change.relationship)
+        return (
+            edge.from_location_id == change.from_location_id
+            and edge.to_location_id == change.to_location_id
+        )
+    return (edge.from_location_id, edge.to_location_id, edge.relationship) == _canonical_change(
+        change
+    )
 
 
 def _retarget_edges(

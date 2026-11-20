@@ -3,7 +3,11 @@ import { useSessionStore } from '@/stores/session'
 import { UNSAVED_SESSION_ID } from '@/utils/sessionId'
 
 /** Edge types between places on the campaign map. */
-export type MapEdgeType = 'traveled' | 'near' | 'north_of' | 'inside' | 'other'
+/**
+ * Directed types read "from is <type> to": `inside` A→B means A is inside B,
+ * `north_of` A→B means A is north of B. South and west arrive reversed.
+ */
+export type MapEdgeType = 'traveled' | 'near' | 'north_of' | 'east_of' | 'inside' | 'other'
 
 /** A place node on the session map. */
 export interface MapNode {
@@ -52,15 +56,20 @@ export interface MapEdgeOut {
 }
 
 /**
- * Translate the backend's relationship vocabulary (`travel` | `proximity`)
- * into the edge types the map legend renders.
+ * Translate the backend's relationship vocabulary into the edge types the
+ * map legend renders. Timeline `proximity` and spoken `near` draw the same.
  */
-function toEdgeType(relationship: string): MapEdgeType {
+export function toEdgeType(relationship: string): MapEdgeType {
   switch (relationship) {
     case 'travel':
       return 'traveled'
     case 'proximity':
+    case 'near':
       return 'near'
+    case 'inside':
+    case 'north_of':
+    case 'east_of':
+      return relationship
     default:
       return 'other'
   }

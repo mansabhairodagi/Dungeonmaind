@@ -57,7 +57,8 @@ class MapConnectionChange:
     Attributes:
         from_location_id: Source location id.
         to_location_id: Destination location id.
-        relationship: Kind of link (travel or proximity). None on a
+        relationship: Kind of link (travel, proximity, near, inside,
+            north_of, east_of; south_of / west_of are stored reversed). None on a
             removal means drop every link between the pair.
     """
 

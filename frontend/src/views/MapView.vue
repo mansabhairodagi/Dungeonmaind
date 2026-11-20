@@ -29,6 +29,7 @@ const edgeLabels: Record<MapEdgeType, string> = {
   traveled: 'Traveled',
   near: 'Near',
   north_of: 'North of',
+  east_of: 'East of',
   inside: 'Inside',
   other: 'Linked',
 }
@@ -37,6 +38,7 @@ const edgeColors: Record<MapEdgeType, string> = {
   traveled: '#b45309',
   near: '#2f6f8f',
   north_of: '#2e7d4f',
+  east_of: '#4f7d2e',
   inside: '#7b4d8e',
   other: '#8a7a4a',
 }

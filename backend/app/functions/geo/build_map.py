@@ -35,8 +35,6 @@ async def generate_map(session_id: str) -> tuple[list[MapLocation], list[MapEdge
     events = await timeline_store.get_session_events(session_id)
     locations = resolve_locations(events, existing=[], session_id=session_id)
     edges = build_edges(locations, events, session_id=session_id)
-    locations, edges = apply_map_overrides(
-        locations, edges, load_session_overrides(session_id)
-    )
+    locations, edges = apply_map_overrides(locations, edges, load_session_overrides(session_id))
     await map_store.save_map(session_id, locations, edges)
     return locations, edges

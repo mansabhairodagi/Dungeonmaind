@@ -188,6 +188,7 @@ const EDGE_TYPE_RANK: Record<MapEdge['type'], number> = {
   near: 2,
   inside: 3,
   north_of: 4,
+  east_of: 4,
 }
 
 /** Infer a map-edge type from event wording until the real linker exists. */

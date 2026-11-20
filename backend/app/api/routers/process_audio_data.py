@@ -8,7 +8,7 @@ from app.base_models.process_audio_data_base_models import (
 )
 from app.domain.session_state import session_registry
 from app.functions.process_audio_data.extract_audio_metadata import extract_audio_metadata
-from app.functions.process_audio_data.transcribe_audio import transcribe_audio
+from app.functions.process_audio_data.transcribe_audio import transcribe_audio_chunk
 
 router = APIRouter()
 
@@ -51,16 +51,17 @@ async def transcribe_audio_file(
             Defaults to the active session.
 
     Returns:
-        TranscriptionResponse: TranscriptionResponse with a list of transcribed segments.
+        TranscriptionResponse: TranscriptionResponse with a list of transcribed segments
+        and where this audio starts in the session recording.
     """
     try:
         audio_bytes = await audio.read()
-        transcription = await transcribe_audio(
+        chunk = await transcribe_audio_chunk(
             audio_bytes,
             content_type=audio.content_type or '',
             session_id=session_registry.resolve(session_id),
         )
-        return TranscriptionResponse(output=transcription)
+        return TranscriptionResponse(output=chunk.segments, audio_offset=chunk.audio_offset)
 
     except Exception as e:
         print(e)

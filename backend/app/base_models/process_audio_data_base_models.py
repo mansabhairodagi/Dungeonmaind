@@ -26,3 +26,8 @@ class TranscriptionResponse(BaseModel):
     output: list[Segment] = Field(
         ..., description='List of transcription segments with timestamps and text'
     )
+    audio_offset: float | None = Field(
+        None,
+        description='Seconds into the session recording where this audio starts; '
+        'segment times are on the same clock',
+    )

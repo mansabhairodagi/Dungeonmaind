@@ -8,6 +8,7 @@ from httpx import ASGITransport, AsyncClient
 
 from app.api.routers import process_audio_data as audio_router_module
 from app.domain.session_state import session_registry
+from app.functions.process_audio_data.transcribe_audio import TranscribedChunk
 
 SEGMENTS = [
     {'start': 0.5, 'end': 3.0, 'text': 'We leave Neverwinter.', 'speaker': 'Ana'},
@@ -24,8 +25,10 @@ def _app() -> FastAPI:
 
 class TranscribeAudioFileRouterTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
-        self.transcribe = mock.AsyncMock(return_value=SEGMENTS)
-        patch = mock.patch.object(audio_router_module, 'transcribe_audio', self.transcribe)
+        self.transcribe = mock.AsyncMock(
+            return_value=TranscribedChunk(segments=SEGMENTS, audio_offset=42.5)
+        )
+        patch = mock.patch.object(audio_router_module, 'transcribe_audio_chunk', self.transcribe)
         patch.start()
         self.addCleanup(patch.stop)
         self.client = AsyncClient(transport=ASGITransport(app=_app()), base_url='http://test')
@@ -39,6 +42,7 @@ class TranscribeAudioFileRouterTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([segment['text'] for segment in output], [s['text'] for s in SEGMENTS])
         self.assertEqual(output[0]['start'], 0.5)
         self.assertEqual(output[1]['end'], 6.5)
+        self.assertEqual(res.json()['audio_offset'], 42.5)
 
     async def test_session_id_is_passed_to_transcription(self) -> None:
         res = await self.client.post(

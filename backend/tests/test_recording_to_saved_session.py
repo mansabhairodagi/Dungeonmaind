@@ -514,6 +514,26 @@ class SessionClockTests(PipelineTestCase):
         starts = [segment.start for segment in await transcript_store.get_segments(SAVED_ID)]
         self.assertEqual(starts, [0.4, 4.0, 30.2, 35.0])
 
+    async def test_each_chunk_reports_where_it_starts(self) -> None:
+        self.whisper.load_audio = lambda path: FakeAudio(30.0)
+        first = await pipeline.transcribe_audio_chunk(b'audio', 'audio/webm', session_id=SAVED_ID)
+        second = await pipeline.transcribe_audio_chunk(b'audio', 'audio/webm', session_id=SAVED_ID)
+
+        self.assertEqual((first.audio_offset, second.audio_offset), (0.0, 30.0))
+        self.assertEqual(second.segments[0]['start'], 30.2)
+
+    async def test_failed_chunk_still_takes_its_time(self) -> None:
+        self.whisper.load_audio = lambda path: FakeAudio(30.0)
+        broken = mock.patch.object(
+            self.whisper, 'transcribe', side_effect=RuntimeError('model crashed')
+        )
+        with broken, self.assertRaises(RuntimeError):
+            await pipeline.transcribe_audio_chunk(b'audio', 'audio/webm', session_id=SAVED_ID)
+
+        chunk = await pipeline.transcribe_audio_chunk(b'audio', 'audio/webm', session_id=SAVED_ID)
+
+        self.assertEqual(chunk.audio_offset, 30.0)
+
     async def test_sessions_keep_separate_clocks(self) -> None:
         await pipeline.transcribe_audio(b'audio', 'audio/webm', session_id=SAVED_ID)
         await pipeline.transcribe_audio(b'audio', 'audio/webm', session_id=UNSAVED)

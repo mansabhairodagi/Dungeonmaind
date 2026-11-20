@@ -23,7 +23,7 @@ async function handleAudioUpload() {
   const formData = new FormData()
   formData.append('audio', selectedAudioFile.value)
   formData.append('session_id', sessionId)
-  keepForPlayback(selectedAudioFile.value, sessionId)
+  const clipIndex = keepForPlayback(selectedAudioFile.value, sessionId)
 
   isUploading.value = true
   audioUploadStatus.value = 'Audio is uploading, please wait...'
@@ -40,6 +40,9 @@ async function handleAudioUpload() {
       throw new Error(`Upload failed with status ${response.status}`)
     }
     const result = await response.json()
+    if (typeof result.audio_offset === 'number') {
+      usePlaybackStore().updateClip(clipIndex, { start: result.audio_offset })
+    }
     audioUploadStatus.value = `Upload successful: ${result.message || 'Audio file received'}`
   } catch (error) {
     console.error('An error occurred while uploading your audio file:', error)
@@ -51,20 +54,22 @@ async function handleAudioUpload() {
 
 /**
  * Keep the uploaded file so the map can jump to moments in it.
- * The clip is reserved before the upload so it keeps its place on the session clock.
+ * The backend's answer says where the file starts on the session clock.
  * @param file - The audio file being uploaded.
  * @param sessionId - Session the audio is transcribed into.
+ * @returns The clip's index in the playback store.
  */
 function keepForPlayback(file: File, sessionId: string) {
   const playback = usePlaybackStore()
   const url = URL.createObjectURL(file)
-  const clipIndex = playback.addClip(sessionId, url)
+  const clipIndex = playback.addClip(sessionId, { url })
   const probe = new Audio()
   probe.preload = 'metadata'
   probe.onloadedmetadata = () => {
-    if (Number.isFinite(probe.duration)) playback.finishClip(clipIndex, { seconds: probe.duration })
+    if (Number.isFinite(probe.duration)) playback.updateClip(clipIndex, { seconds: probe.duration })
   }
   probe.src = url
+  return clipIndex
 }
 
 function onAudioFileChange(event: Event) {

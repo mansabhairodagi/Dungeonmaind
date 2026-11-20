@@ -31,6 +31,10 @@ export const useRecorderStore = defineStore('recorder', () => {
   let cleanupDone = false
   // Records the whole session without rotating, so the map can seek in it.
   let playbackRecorder: MediaRecorder | null = null
+  let playbackClipIndex: number | null = null
+  let playbackStartedAt = 0
+  // When the transcription recorder last (re)started, i.e. where the next chunk begins.
+  let chunkStartedAt = 0
 
   /**
    * Resolve the backend base URL from the session store or fallback config.
@@ -155,8 +159,9 @@ export const useRecorderStore = defineStore('recorder', () => {
    *
    * The transcription recorder restarts every 30 seconds, and its pieces cannot
    * be joined into one seekable file. This second recorder never restarts. Its
-   * clip is reserved in the playback store now, so it keeps its place before
-   * any audio uploaded later, and filled in when recording stops.
+   * clip is anchored on the session clock by the first chunk the backend
+   * answers (see {@link anchorPlaybackClip}) and gets its audio when recording
+   * stops.
    * @param stream - The microphone stream being recorded.
    * @param mimeType - The audio format the transcription recorder uses.
    */
@@ -165,6 +170,8 @@ export const useRecorderStore = defineStore('recorder', () => {
     const clipIndex = playback.addClip(useSessionStore().sessionId)
     const chunks: Blob[] = []
     const startedAt = Date.now()
+    playbackClipIndex = clipIndex
+    playbackStartedAt = startedAt
     try {
       playbackRecorder = new MediaRecorder(stream, { mimeType })
     } catch (err) {
@@ -176,12 +183,25 @@ export const useRecorderStore = defineStore('recorder', () => {
       if (e.data.size > 0) chunks.push(e.data)
     }
     playbackRecorder.onstop = () => {
-      playback.finishClip(clipIndex, {
+      playback.updateClip(clipIndex, {
         url: URL.createObjectURL(new Blob(chunks, { type: mimeType })),
         seconds: (Date.now() - startedAt) / 1000,
       })
     }
     playbackRecorder.start()
+  }
+
+  /**
+   * Place the playback recording on the session clock from a transcribed chunk.
+   * @param audioOffset - Where the backend put the chunk on the session clock.
+   * @param chunkStart - When the chunk started recording (ms timestamp).
+   */
+  function anchorPlaybackClip(audioOffset: number, chunkStart: number) {
+    if (playbackClipIndex === null) return
+    const playback = usePlaybackStore()
+    if (playback.clips[playbackClipIndex]?.start != null) return
+    const intoRecording = Math.max(0, (chunkStart - playbackStartedAt) / 1000)
+    playback.updateClip(playbackClipIndex, { start: Math.max(0, audioOffset - intoRecording) })
   }
 
   /** Finish the playback recording started by {@link startPlaybackRecorder}. */
@@ -234,10 +254,11 @@ export const useRecorderStore = defineStore('recorder', () => {
         const chunks = audioChunks.value
         audioChunks.value = []
 
+        const chunkStart = chunkStartedAt
         queueMicrotask(async () => {
           if (chunks.length > 0) {
             const last = new Blob(chunks, { type: mediaRecorder.value?.mimeType })
-            void sendAudioChunk(last, isFinalStop.value)
+            void sendAudioChunk(last, isFinalStop.value, chunkStart)
           }
 
           if (isFinalStop.value) {
@@ -255,11 +276,13 @@ export const useRecorderStore = defineStore('recorder', () => {
               recordingDuration.value = Date.now() - recordingStartTime.value
             }
           } else {
+            chunkStartedAt = Date.now()
             mediaRecorder.value?.start()
           }
         })
       }
 
+      chunkStartedAt = Date.now()
       mediaRecorder.value.start()
       isRecording.value = true
 
@@ -351,8 +374,9 @@ export const useRecorderStore = defineStore('recorder', () => {
    * Upload an audio chunk to the backend for transcription.
    * @param chunk - The audio blob to send.
    * @param isFinalSegment - Whether this is the last chunk (triggers transcription status).
+   * @param chunkStart - When the chunk started recording, to place the playback audio.
    */
-  async function sendAudioChunk(chunk: Blob, isFinalSegment = false) {
+  async function sendAudioChunk(chunk: Blob, isFinalSegment = false, chunkStart?: number) {
     const form = new FormData()
     const fileExtension = chunk.type.split('/')[1]?.split(';')[0] || 'ogg'
     form.append('audio', chunk, `chunk_${Date.now()}.${fileExtension}`)
@@ -384,6 +408,9 @@ export const useRecorderStore = defineStore('recorder', () => {
       }
 
       const result = await res.json()
+      if (typeof result.audio_offset === 'number' && chunkStart !== undefined) {
+        anchorPlaybackClip(result.audio_offset, chunkStart)
+      }
       console.log('Chunk transcribed successfully:', result)
 
       if (isFinalSegment) {

@@ -14,6 +14,7 @@ import os
 os.environ['TORCH_FORCE_WEIGHTS_ONLY_LOAD'] = '0'
 
 import tempfile
+from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
 from typing import Any
@@ -171,6 +172,21 @@ def ensure_transcription_models_loaded() -> None:
 _WHISPER_SAMPLE_RATE = 16000
 
 
+@dataclass
+class TranscribedChunk:
+    """One transcribed audio chunk.
+
+    Attributes:
+        segments: Transcribed segments, with times on the session clock.
+        audio_offset: Seconds into the session recording where this chunk
+            starts. Lets the frontend line its copy of the audio up with
+            transcript times.
+    """
+
+    segments: list
+    audio_offset: float
+
+
 def _shift_segments(segments: list, seconds: float) -> None:
     """Move segment and word times by ``seconds``, in place.
 
@@ -249,7 +265,7 @@ async def _store_timeline_and_map(
 
 async def _transcribe_raw_session_audio(
     audio_bytes: bytes, file_extension: str, batch_size: int, session_id: str = 'unsaved'
-) -> list:
+) -> TranscribedChunk:
     """Transcribe the uploaded session audio without pydub voiceprint prep."""
     temp_audio_dir = Path(settings.backend_root_path) / 'data' / 'tmp_audio'
     temp_audio_dir.mkdir(parents=True, exist_ok=True)
@@ -271,6 +287,14 @@ async def _transcribe_raw_session_audio(
                 'WhisperX could not find ffmpeg/ffprobe or the temporary audio file while loading audio. '
                 f'Temporary audio path was {temp_audio_path}.'
             ) from e
+
+        # Claim this chunk's place on the session clock before transcribing, so
+        # chunks keep their arrival order and a failed chunk still takes its time.
+        offset = None
+        if hasattr(audio, 'shape'):
+            offset = await transcript_store.reserve_audio_span(
+                session_id, len(audio) / _WHISPER_SAMPLE_RATE
+            )
 
         result = transcription_model.transcribe(audio, batch_size=batch_size)
         language_code = result['language']
@@ -302,13 +326,12 @@ async def _transcribe_raw_session_audio(
             print(f'[{seg["start"]:.2f}s - {seg["end"]:.2f}s] {seg["speaker"]}: {seg["text"]}')
 
         filtered_segments = result_aligned.get('segments', [])
-        if hasattr(audio, 'shape'):
-            chunk_seconds = len(audio) / _WHISPER_SAMPLE_RATE
-        else:
+        if offset is None:
+            # Length unknown up front: the chunk lasts at least until its last segment.
             chunk_seconds = max(
                 (float(seg.get('end', 0.0)) for seg in filtered_segments), default=0.0
             )
-        offset = await transcript_store.reserve_audio_span(session_id, chunk_seconds)
+            offset = await transcript_store.reserve_audio_span(session_id, chunk_seconds)
         _shift_segments(filtered_segments, offset)
         texts = []
         speakers = []
@@ -332,7 +355,7 @@ async def _transcribe_raw_session_audio(
             )
             await _store_timeline_and_map(texts, speakers, start_times, session_id, saved_chunks)
 
-        return filtered_segments
+        return TranscribedChunk(filtered_segments, offset)
     finally:
         try:
             temp_audio_path.unlink(missing_ok=True)
@@ -345,6 +368,27 @@ async def _transcribe_raw_session_audio(
 async def transcribe_audio(
     audio_bytes: bytes, content_type: str, batch_size: int = 16, session_id: str = 'unsaved'
 ) -> list | None:
+    """Transcribe audio bytes and return only the segments.
+
+    See transcribe_audio_chunk, which also returns where the chunk starts in
+    the session recording.
+
+    Args:
+        audio_bytes: Raw audio bytes.
+        content_type: MIME type of the audio.
+        batch_size (int): Batch size for WhisperX transcription.
+        session_id: Campaign/session key for timeline and map storage.
+
+    Returns:
+        list | None: List of filtered segments with speaker labels.
+    """
+    chunk = await transcribe_audio_chunk(audio_bytes, content_type, batch_size, session_id)
+    return chunk.segments
+
+
+async def transcribe_audio_chunk(
+    audio_bytes: bytes, content_type: str, batch_size: int = 16, session_id: str = 'unsaved'
+) -> TranscribedChunk:
     """Transcribe audio bytes with speaker diarization and voiceprint recognition.
 
     Combines player voiceprints with session audio, performs WhisperX transcription,
@@ -358,7 +402,8 @@ async def transcribe_audio(
         session_id: Campaign/session key for timeline and map storage.
 
     Returns:
-        list | None: List of filtered segments with speaker labels, or None on error.
+        TranscribedChunk with the filtered segments (speaker labels, session
+        clock times) and the chunk's offset in the session recording.
     """
     ensure_transcription_models_loaded()
 
@@ -390,6 +435,8 @@ async def transcribe_audio(
         speaker_order.append(p.name)  # Kombiniere die Session-Aufnahme
 
     session_audio = AudioSegment.from_file(BytesIO(audio_bytes))
+    # Claim this chunk's place on the session clock before transcribing.
+    offset = await transcript_store.reserve_audio_span(session_id, len(session_audio) / 1000)
     intro_duration_ms = len(combined_audio)
     combined_audio += session_audio
     # export
@@ -481,7 +528,6 @@ async def transcribe_audio(
         # remove voice notes
         filtered_segments = [seg for seg in resultB['segments'] if seg['start'] > intro_duration_s]
         # Drop the voiceprint intro from the times and place the chunk on the session clock.
-        offset = await transcript_store.reserve_audio_span(session_id, len(session_audio) / 1000)
         _shift_segments(filtered_segments, offset - intro_duration_s)
 
         # 7. Embed the resulting text
@@ -509,7 +555,7 @@ async def transcribe_audio(
 
             await _store_timeline_and_map(texts, speakers, start_times, session_id, saved_chunks)
 
-        return filtered_segments
+        return TranscribedChunk(filtered_segments, offset)
 
         # # Return the diarized segments
         # return final_segments

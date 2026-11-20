@@ -5,6 +5,7 @@
  */
 import { ref } from 'vue'
 import { SERVER_CONFIG } from '@/config/config'
+import { usePlaybackStore } from '@/stores/playback'
 import { useSessionStore } from '@/stores/session'
 
 const selectedAudioFile = ref<File | null>(null)
@@ -18,9 +19,11 @@ async function handleAudioUpload() {
     return
   }
 
+  const sessionId = useSessionStore().sessionId
   const formData = new FormData()
   formData.append('audio', selectedAudioFile.value)
-  formData.append('session_id', useSessionStore().sessionId)
+  formData.append('session_id', sessionId)
+  keepForPlayback(selectedAudioFile.value, sessionId)
 
   isUploading.value = true
   audioUploadStatus.value = 'Audio is uploading, please wait...'
@@ -44,6 +47,24 @@ async function handleAudioUpload() {
   } finally {
     isUploading.value = false
   }
+}
+
+/**
+ * Keep the uploaded file so the map can jump to moments in it.
+ * The clip is reserved before the upload so it keeps its place on the session clock.
+ * @param file - The audio file being uploaded.
+ * @param sessionId - Session the audio is transcribed into.
+ */
+function keepForPlayback(file: File, sessionId: string) {
+  const playback = usePlaybackStore()
+  const url = URL.createObjectURL(file)
+  const clipIndex = playback.addClip(sessionId, url)
+  const probe = new Audio()
+  probe.preload = 'metadata'
+  probe.onloadedmetadata = () => {
+    if (Number.isFinite(probe.duration)) playback.finishClip(clipIndex, { seconds: probe.duration })
+  }
+  probe.src = url
 }
 
 function onAudioFileChange(event: Event) {

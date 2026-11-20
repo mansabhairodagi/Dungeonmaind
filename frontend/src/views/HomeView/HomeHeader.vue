@@ -9,6 +9,7 @@ import { useRouter } from 'vue-router'
 import { SERVER_CONFIG } from '@/config/config.ts'
 import { useSessionStore } from '@/stores/session.ts'
 import { useRecorderStore } from '@/stores/recorder.ts'
+import { usePlaybackStore } from '@/stores/playback.ts'
 import { useConfigStore } from '@/stores/backendConfig.ts'
 import { fetchConfig } from '@/api/backendConfigAPI.ts'
 import ConfigView from '@/views/ConfigView.vue'
@@ -202,8 +203,10 @@ async function onExport() {
     if (!res.ok) {
       throw new Error(`Save failed (${res.status})`)
     }
+    const sourceSessionId = store.sessionId
     store.setCampaignSession(campaign, name)
     await store.refreshActiveSession()
+    usePlaybackStore().rekey(sourceSessionId, store.sessionId)
   } catch (err) {
     console.error(err)
     if (err instanceof Error) {
@@ -244,22 +247,27 @@ async function confirmOverwrite() {
 
   if (overwriteSuccessful) {
     try {
-      const res = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.ENDPOINTS.EXPORT_SESSION}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          campaign_name: campaign,
-          session_name: name,
-          source_session_id: store.sessionId,
-        }),
-      })
+      const res = await fetch(
+        `${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.ENDPOINTS.EXPORT_SESSION}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            campaign_name: campaign,
+            session_name: name,
+            source_session_id: store.sessionId,
+          }),
+        },
+      )
       if (!res.ok) {
         throw new Error(`Save failed (${res.status})`)
       }
 
       savingSuccessful = true
+      const sourceSessionId = store.sessionId
       if (campaign && name) store.setCampaignSession(campaign, name)
       await store.refreshActiveSession()
+      usePlaybackStore().rekey(sourceSessionId, store.sessionId)
     } catch (err) {
       console.error(err)
       if (err instanceof Error) {

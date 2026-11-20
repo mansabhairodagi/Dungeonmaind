@@ -3,9 +3,10 @@
  * MapView – displays a schematic campaign map built from session places.
  * Loads backend map data when available, otherwise derives nodes from timeline events.
  */
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMapStore } from '@/stores/map'
+import { usePlaybackStore } from '@/stores/playback'
 import { useSessionStore } from '@/stores/session'
 import { useTimelineStore } from '@/stores/timeline'
 import type { MapEdge, MapEdgeType } from '@/api/mapAPI'
@@ -17,8 +18,17 @@ const route = useRoute()
 const mapStore = useMapStore()
 const timelineStore = useTimelineStore()
 const sessionStore = useSessionStore()
+const playbackStore = usePlaybackStore()
 
 const svgRef = ref<SVGSVGElement | null>(null)
+const playerRef = ref<HTMLAudioElement | null>(null)
+const playerUrl = ref<string | null>(null)
+const playbackMessage = ref('')
+
+/** Whether this browser holds the audio of the session shown on the map. */
+const canPlay = computed(
+  () => playbackStore.hasAudio && playbackStore.sessionId === sessionStore.sessionId,
+)
 const selectedEdgeKey = ref<string | null>(null)
 
 const zoom = ref(1)
@@ -182,18 +192,65 @@ function goToTimeline() {
   router.push({ name: 'timeline' })
 }
 
-async function handleSelectPlace(placeId: string) {
+/**
+ * Select a place and, when clicked directly, jump the recording to the first
+ * moment it was mentioned.
+ * @param placeId - The place node id.
+ * @param jump - Whether to seek the recording (off when selecting via a path).
+ */
+async function handleSelectPlace(placeId: string, jump = true) {
   selectedEdgeKey.value = null
   await mapStore.selectPlace(placeId)
   const node = mapStore.nodes.find((item) => item.id === placeId)
   if (node) {
     router.replace({ name: 'map', query: { place: node.label } })
   }
+  const first = mapStore.selectedMentions[0]
+  if (jump && first && canPlay.value) await jumpTo(first.start)
 }
 
 async function handleSelectEdge(edge: MapEdge, index: number) {
   selectedEdgeKey.value = edgeKey(edge, index)
-  await handleSelectPlace(edge.to)
+  await handleSelectPlace(edge.to, false)
+}
+
+/** Format seconds on the session clock as m:ss (or h:mm:ss). */
+function formatClock(seconds: number): string {
+  const total = Math.max(0, Math.floor(seconds))
+  const h = Math.floor(total / 3600)
+  const m = Math.floor((total % 3600) / 60)
+  const s = String(total % 60).padStart(2, '0')
+  return h ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`
+}
+
+/**
+ * Seek the recording to a moment on the session clock and play from there.
+ * @param seconds - A transcript segment start time.
+ */
+async function jumpTo(seconds: number) {
+  const position = canPlay.value ? playbackStore.locate(seconds) : null
+  if (!position) {
+    playbackMessage.value = 'That part of the recording is not available in this browser.'
+    return
+  }
+  playbackMessage.value = ''
+  if (playerUrl.value !== position.url) {
+    playerUrl.value = position.url
+    await nextTick()
+  }
+  const player = playerRef.value
+  if (!player) return
+  if (player.readyState < HTMLMediaElement.HAVE_METADATA) {
+    await new Promise<void>((resolve) =>
+      player.addEventListener('loadedmetadata', () => resolve(), { once: true }),
+    )
+  }
+  player.currentTime = position.offset
+  try {
+    await player.play()
+  } catch {
+    // Autoplay can be blocked; the player is already at the right moment.
+  }
 }
 
 function clearSelection() {
@@ -646,6 +703,37 @@ watch(
               </ul>
             </div>
 
+            <div v-if="mapStore.selectedMentions.length" class="mentions-block">
+              <p class="sidebar-eyebrow">Mentioned in the recording</p>
+              <audio
+                v-show="canPlay"
+                ref="playerRef"
+                class="mention-player"
+                controls
+                preload="metadata"
+                :src="playerUrl ?? undefined"
+              ></audio>
+              <p v-if="!canPlay" class="sidebar-note">
+                The recording is only kept in the browser tab that recorded or uploaded it, so it
+                can't be played here.
+              </p>
+              <p v-else-if="playbackMessage" class="sidebar-note">{{ playbackMessage }}</p>
+              <ul class="link-list">
+                <li v-for="mention in mapStore.selectedMentions" :key="mention.start">
+                  <button
+                    type="button"
+                    class="link-chip mention-chip"
+                    :disabled="!canPlay"
+                    :title="mention.text"
+                    @click="jumpTo(mention.start)"
+                  >
+                    <span class="mention-time">{{ formatClock(mention.start) }}</span>
+                    {{ truncateLabel(mention.text, 60) }}
+                  </button>
+                </li>
+              </ul>
+            </div>
+
             <div v-if="selectedEvents.length === 0" class="sidebar-empty">
               No timeline events linked to this place yet.
             </div>
@@ -1081,6 +1169,32 @@ watch(
 
 .link-chip:hover {
   background: rgba(243, 156, 18, 0.18);
+}
+
+.mentions-block {
+  margin-bottom: 0.85rem;
+}
+
+.mention-player {
+  width: 100%;
+  margin-top: 0.4rem;
+}
+
+.mention-chip:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.mention-time {
+  font-weight: 700;
+  margin-right: 0.35rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.sidebar-note {
+  margin: 0.4rem 0;
+  font-size: 0.8rem;
+  color: #4c3e06;
 }
 
 .event-list {

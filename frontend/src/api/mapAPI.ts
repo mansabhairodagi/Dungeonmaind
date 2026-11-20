@@ -40,6 +40,17 @@ export interface MapPlaceEventsResponse {
   event_ids: string[]
 }
 
+/** A moment in the session recording where a place was mentioned. */
+export interface MapMention {
+  /** Seconds into the session recording. */
+  start: number
+  end: number
+  text: string
+  speaker: string
+  /** `transcript` for a transcript line, `event` for a timeline-event fallback. */
+  source: 'transcript' | 'event'
+}
+
 /** A resolved place as returned by GET /map/locations. */
 export interface MapLocationOut {
   id: string
@@ -262,4 +273,18 @@ export async function getPlaceEvents(
     place_id: placeId,
     event_ids: (body.events ?? []).map((event) => event.id),
   }
+}
+
+/**
+ * Fetch the moments in the session recording where a place was mentioned.
+ * @param sessionId - The session identifier.
+ * @param placeId - The place node id.
+ * @returns Mentions ordered by start time.
+ */
+export async function getPlaceMentions(sessionId: string, placeId: string): Promise<MapMention[]> {
+  const body = await getJson<{ mentions: MapMention[] }>(
+    `/map/locations/${encodeURIComponent(placeId)}/mentions`,
+    sessionId,
+  )
+  return body.mentions ?? []
 }

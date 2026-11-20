@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed, type Ref } from 'vue'
+import { usePlaybackStore } from '@/stores/playback'
 import { useSessionStore } from '@/stores/session'
 import { SERVER_CONFIG } from '@/config/config'
 
@@ -28,6 +29,8 @@ export const useRecorderStore = defineStore('recorder', () => {
   const canExportSession = ref<boolean>(false)
 
   let cleanupDone = false
+  // Records the whole session without rotating, so the map can seek in it.
+  let playbackRecorder: MediaRecorder | null = null
 
   /**
    * Resolve the backend base URL from the session store or fallback config.
@@ -138,12 +141,57 @@ export const useRecorderStore = defineStore('recorder', () => {
     } catch (err) {
       console.warn('Recorder shutdown error (stop):', err)
     }
+    stopPlaybackRecorder()
     try {
       audioStream.value?.getTracks().forEach((t) => t.stop())
     } catch (err) {
       console.warn('Recorder shutdown error (tracks):', err)
     }
     stopTimer()
+  }
+
+  /**
+   * Record the same stream in one piece for playback on the map.
+   *
+   * The transcription recorder restarts every 30 seconds, and its pieces cannot
+   * be joined into one seekable file. This second recorder never restarts. Its
+   * clip is reserved in the playback store now, so it keeps its place before
+   * any audio uploaded later, and filled in when recording stops.
+   * @param stream - The microphone stream being recorded.
+   * @param mimeType - The audio format the transcription recorder uses.
+   */
+  function startPlaybackRecorder(stream: MediaStream, mimeType: string) {
+    const playback = usePlaybackStore()
+    const clipIndex = playback.addClip(useSessionStore().sessionId)
+    const chunks: Blob[] = []
+    const startedAt = Date.now()
+    try {
+      playbackRecorder = new MediaRecorder(stream, { mimeType })
+    } catch (err) {
+      console.warn('Playback recording unavailable:', err)
+      playbackRecorder = null
+      return
+    }
+    playbackRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) chunks.push(e.data)
+    }
+    playbackRecorder.onstop = () => {
+      playback.finishClip(clipIndex, {
+        url: URL.createObjectURL(new Blob(chunks, { type: mimeType })),
+        seconds: (Date.now() - startedAt) / 1000,
+      })
+    }
+    playbackRecorder.start()
+  }
+
+  /** Finish the playback recording started by {@link startPlaybackRecorder}. */
+  function stopPlaybackRecorder() {
+    try {
+      if (playbackRecorder && playbackRecorder.state !== 'inactive') playbackRecorder.stop()
+    } catch (err) {
+      console.warn('Failed to stop playback recorder:', err)
+    }
+    playbackRecorder = null
   }
 
   /**
@@ -174,6 +222,7 @@ export const useRecorderStore = defineStore('recorder', () => {
       }
 
       mediaRecorder.value = new MediaRecorder(stream, { mimeType })
+      startPlaybackRecorder(stream, mimeType)
 
       mediaRecorder.value.ondataavailable = (e) => {
         if (e.data.size > 0) audioChunks.value.push(e.data)
@@ -192,6 +241,7 @@ export const useRecorderStore = defineStore('recorder', () => {
           }
 
           if (isFinalStop.value) {
+            stopPlaybackRecorder()
             try {
               audioStream.value?.getTracks().forEach((t) => t.stop())
             } catch (err) {

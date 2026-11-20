@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import * as mapApi from '@/api/mapAPI'
-import type { MapEdge, MapEdgeType, MapNode } from '@/api/mapAPI'
+import type { MapEdge, MapEdgeType, MapMention, MapNode } from '@/api/mapAPI'
 import { useSessionStore } from '@/stores/session'
 import { useTimelineStore } from '@/stores/timeline'
 import { buildMapFromTimeline, locationBelongsToNode, placeToId } from '@/utils/mapFromTimeline'
@@ -31,6 +31,7 @@ export const useMapStore = defineStore('map', () => {
   const apiStatus = ref<MapApiStatus>('unknown')
   const selectedPlaceId = ref<string | null>(null)
   const selectedEventIds = ref<string[]>([])
+  const selectedMentions = ref<MapMention[]>([])
 
   const nodeCount = computed(() => nodes.value.length)
   const edgeCount = computed(() => edges.value.length)
@@ -152,10 +153,11 @@ export const useMapStore = defineStore('map', () => {
     }
   }
 
-  /** Select a place node and load linked timeline events. */
+  /** Select a place node and load linked timeline events and recording mentions. */
   async function selectPlace(placeId: string | null) {
     selectedPlaceId.value = placeId
     selectedEventIds.value = []
+    selectedMentions.value = []
 
     if (!placeId) return
 
@@ -163,6 +165,7 @@ export const useMapStore = defineStore('map', () => {
     if (!node) return
 
     if (dataSource.value === 'api') {
+      await loadMentions(placeId)
       try {
         const response = await mapApi.getPlaceEvents(sessionId.value, placeId)
         selectedEventIds.value = response.event_ids ?? []
@@ -180,6 +183,16 @@ export const useMapStore = defineStore('map', () => {
       .map((event) => event.id)
   }
 
+  /** Load when a place was mentioned in the recording. Leaves the list empty on error. */
+  async function loadMentions(placeId: string) {
+    try {
+      const mentions = await mapApi.getPlaceMentions(sessionId.value, placeId)
+      if (selectedPlaceId.value === placeId) selectedMentions.value = mentions
+    } catch {
+      // No transcript times for this place; the map still works without them.
+    }
+  }
+
   /** Resolve a place query string to a node id, if it matches a label. */
   function resolvePlaceQuery(placeQuery: string | null | undefined): string | null {
     if (!placeQuery?.trim()) return null
@@ -193,6 +206,7 @@ export const useMapStore = defineStore('map', () => {
   function clearSelection() {
     selectedPlaceId.value = null
     selectedEventIds.value = []
+    selectedMentions.value = []
   }
 
   async function persistEdit(run: () => Promise<void>) {
@@ -260,6 +274,7 @@ export const useMapStore = defineStore('map', () => {
     apiStatus,
     selectedPlaceId,
     selectedEventIds,
+    selectedMentions,
     nodeCount,
     edgeCount,
     selectedNode,

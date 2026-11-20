@@ -153,11 +153,14 @@ def record_added_connection(
     to_location_id: str,
     relationship: str = 'travel',
     path: Path | None = None,
+    segment_start: float | None = None,
 ) -> SessionMapOverrides:
     """Store an added connection, cancelling a matching removal if present.
 
     The relationship is stored in canonical form, so "south_of" A->B is
-    saved as "north_of" B->A.
+    saved as "north_of" B->A. ``segment_start`` records the transcript
+    line the DM tagged the connection on; tagging the same connection
+    again on another line moves the tag there.
     """
     from_location_id, to_location_id, kind = canonical_connection(
         from_location_id, to_location_id, relationship
@@ -169,17 +172,25 @@ def record_added_connection(
         for item in overrides.removed_connections
         if not _same_connection(item, from_location_id, to_location_id, relationship)
     ]
-    if not any(
-        _same_connection(item, from_location_id, to_location_id, relationship)
-        for item in overrides.added_connections
-    ):
+    existing = next(
+        (
+            item
+            for item in overrides.added_connections
+            if _same_connection(item, from_location_id, to_location_id, relationship)
+        ),
+        None,
+    )
+    if existing is None:
         overrides.added_connections.append(
             MapConnectionChange(
                 from_location_id=from_location_id,
                 to_location_id=to_location_id,
                 relationship=relationship,
+                segment_start=segment_start,
             )
         )
+    elif segment_start is not None:
+        existing.segment_start = segment_start
     save_session_overrides(session_id, overrides, path)
     return overrides
 
@@ -387,12 +398,21 @@ def _apply_added_connections(
             continue
         if from_id not in known_ids or to_id not in known_ids:
             continue
-        if any(
-            edge.from_location_id == from_id
-            and edge.to_location_id == to_id
-            and edge.relationship == relationship
-            for edge in next_edges
-        ):
+        evidence_times = [] if addition.segment_start is None else [addition.segment_start]
+        existing = next(
+            (
+                edge
+                for edge in next_edges
+                if edge.from_location_id == from_id
+                and edge.to_location_id == to_id
+                and edge.relationship == relationship
+            ),
+            None,
+        )
+        if existing is not None:
+            for seconds in evidence_times:
+                if seconds not in existing.evidence_times:
+                    existing.evidence_times.append(seconds)
             continue
         next_edges.append(
             MapEdge(
@@ -402,6 +422,7 @@ def _apply_added_connections(
                 to_location_id=to_id,
                 relationship=relationship,
                 order=len(next_edges),
+                evidence_times=evidence_times,
             )
         )
     return _resequence_edges(next_edges)

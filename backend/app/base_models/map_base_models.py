@@ -91,6 +91,51 @@ class MapGenerateResponse(BaseModel):
     edges: list[MapEdgeOut]
 
 
+class MapTranscriptLineOut(BaseModel):
+    """Response model for one transcript line on the map page.
+
+    Attributes:
+        start: Start time of the line in seconds on the session clock.
+        end: End time of the line in seconds.
+        text: What was said.
+        speaker: Speaker label or player name.
+        location_ids: Resolved places named in the line, in spoken order.
+    """
+
+    start: float
+    end: float
+    text: str
+    speaker: str
+    location_ids: list[str] = Field(default_factory=list)
+
+
+class MapTranscriptResponse(BaseModel):
+    """Response model for a session's transcript, annotated with named places."""
+
+    session_id: str
+    lines: list[MapTranscriptLineOut]
+    total: int
+
+
+class MapRelationshipTagRequest(BaseModel):
+    """Request model for a DM tagging a spatial relationship on a transcript line.
+
+    Attributes:
+        session_id: Session the map belongs to.
+        from_location_id: Place being described ("the cellar" in "the cellar is
+            inside the keep").
+        to_location_id: Place it is described against.
+        relationship: near, inside, north_of, south_of, east_of or west_of.
+        segment_start: Start time of the transcript line being tagged, if any.
+    """
+
+    session_id: str = 'default'
+    from_location_id: str
+    to_location_id: str
+    relationship: str
+    segment_start: float | None = None
+
+
 class MapDeleteResponse(BaseModel):
     """Response model for a map deletion result."""
 

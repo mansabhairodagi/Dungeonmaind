@@ -11,7 +11,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from app.api.mappers.map_mapper import map_edge_to_out, map_location_to_out
 from app.api.mappers.timeline_mapper import timeline_event_to_out
 from app.api.routers.players import _require_leader
-from app.core.bus import bus
 from app.base_models.map_base_models import (
     MapConnectionRequest,
     MapDeleteResponse,
@@ -22,17 +21,22 @@ from app.base_models.map_base_models import (
     MapLocationListResponse,
     MapLocationOut,
     MapMergeRequest,
+    MapRelationshipTagRequest,
     MapRenameRequest,
     MapSplitRequest,
+    MapTranscriptLineOut,
+    MapTranscriptResponse,
 )
 from app.base_models.timeline_base_models import TimelineEventListResponse
-from app.domain.map_edge import MapEdge
+from app.core.bus import bus
+from app.domain.map_edge import MapEdge, MapEdgeRelationship, parse_relationship
 from app.domain.map_location import MapLocation
 from app.domain.map_store import map_store
 from app.domain.models import Player as DomainPlayer
 from app.domain.models import TimelineEvent
 from app.domain.session_state import session_registry
 from app.domain.timeline_store import timeline_store
+from app.domain.transcript_store import transcript_store
 from app.functions.geo.build_map import generate_map, infer_session_edges
 from app.functions.geo.link_builder import build_edges
 from app.functions.geo.map_overrides import (
@@ -45,9 +49,20 @@ from app.functions.geo.map_overrides import (
     record_rename,
     record_split,
 )
+from app.functions.geo.place_mentions import find_place_mentions
 from app.functions.geo.place_resolver import resolve_locations
 
 router = APIRouter()
+
+# Relationships a DM can tag by hand; travel and proximity come from the timeline.
+_TAGGABLE_RELATIONSHIPS = frozenset(
+    {
+        MapEdgeRelationship.near,
+        MapEdgeRelationship.inside,
+        MapEdgeRelationship.north_of,
+        MapEdgeRelationship.east_of,
+    }
+)
 
 
 async def _raw_session_graph(
@@ -320,8 +335,7 @@ async def list_location_edges(
 
 @router.post('/generate', response_model=MapGenerateResponse)
 async def generate_session_map(
-    req: MapGenerateRequest,
-    _leader: DomainPlayer = Depends(_require_leader),
+    req: MapGenerateRequest, _leader: DomainPlayer = Depends(_require_leader)
 ) -> MapGenerateResponse:
     """Rebuild a session's map from the timeline, then reapply DM overrides.
 
@@ -368,17 +382,77 @@ async def get_map(
     """
     session_id = session_registry.resolve(session_id)
     locations, edges = await _session_edges(session_id)
-    return MapGraphResponse(
-        session_id=session_id,
-        locations=[map_location_to_out(location) for location in locations],
-        edges=[map_edge_to_out(edge) for edge in edges],
-    )
+    return _graph_response(session_id, locations, edges)
+
+
+@router.get('/transcript', response_model=MapTranscriptResponse)
+async def list_transcript(
+    session_id: str = Query('default', description='Session identifier'),
+) -> MapTranscriptResponse:
+    """List a session's transcript lines with the places each line names.
+
+    Lets the DM pick a line to tag a spatial relationship on. Place names
+    are matched against the session's places after DM corrections, so a
+    renamed place still matches its old spoken name.
+
+    Args:
+        session_id: Session identifier (default 'default').
+
+    Returns:
+        MapTranscriptResponse with one line per transcript segment.
+    """
+    session_id = session_registry.resolve(session_id)
+    _, locations = await _session_events_and_locations(session_id)
+    segments = await transcript_store.get_segments(session_id)
+    lines = [
+        MapTranscriptLineOut(
+            start=segment.start,
+            end=segment.end,
+            text=segment.text,
+            speaker=segment.speaker,
+            location_ids=list(
+                dict.fromkeys(
+                    mention.location_id for mention in find_place_mentions(segment.text, locations)
+                )
+            ),
+        )
+        for segment in segments
+    ]
+    return MapTranscriptResponse(session_id=session_id, lines=lines, total=len(lines))
+
+
+async def _validated_tag(req: MapRelationshipTagRequest) -> str:
+    """Check a relationship tag against the session's places.
+
+    Returns:
+        The resolved session id.
+
+    Raises:
+        HTTPException 422: If the relationship is not taggable or both ends
+            are the same place.
+        HTTPException 404: If either place is not on the session map.
+    """
+    parsed = parse_relationship(req.relationship)
+    if parsed is None or parsed[0] not in _TAGGABLE_RELATIONSHIPS:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail='Relationship must be near, inside, north_of, south_of, east_of or west_of',
+        )
+    if req.from_location_id == req.to_location_id:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, detail='A place cannot relate to itself'
+        )
+    session_id = session_registry.resolve(req.session_id)
+    _, locations = await _session_events_and_locations(session_id)
+    known = {location.id for location in locations}
+    if req.from_location_id not in known or req.to_location_id not in known:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail='Location not found')
+    return session_id
 
 
 @router.post('/overrides/rename', response_model=MapGraphResponse)
 async def rename_map_location(
-    req: MapRenameRequest,
-    _leader: DomainPlayer = Depends(_require_leader),
+    req: MapRenameRequest, _leader: DomainPlayer = Depends(_require_leader)
 ) -> MapGraphResponse:
     """Rename a place. Leader-only. Stored in map_overrides.json and reapplied on regenerate."""
     session_id = session_registry.resolve(req.session_id)
@@ -394,8 +468,7 @@ async def rename_map_location(
 
 @router.post('/overrides/merge', response_model=MapGraphResponse)
 async def merge_map_locations(
-    req: MapMergeRequest,
-    _leader: DomainPlayer = Depends(_require_leader),
+    req: MapMergeRequest, _leader: DomainPlayer = Depends(_require_leader)
 ) -> MapGraphResponse:
     """Fold source places into a surviving target. Leader-only."""
     session_id = session_registry.resolve(req.session_id)
@@ -414,8 +487,7 @@ async def merge_map_locations(
 
 @router.post('/overrides/split', response_model=MapGraphResponse)
 async def split_map_location(
-    req: MapSplitRequest,
-    _leader: DomainPlayer = Depends(_require_leader),
+    req: MapSplitRequest, _leader: DomainPlayer = Depends(_require_leader)
 ) -> MapGraphResponse:
     """Carve a new place out of an existing one. Leader-only."""
     session_id = session_registry.resolve(req.session_id)
@@ -427,21 +499,14 @@ async def split_map_location(
     overrides = load_session_overrides(session_id)
     new_id = (req.new_location_id or '').strip() or next_location_id(locations, overrides)
     event_ids = [item for item in req.event_ids if item in source.event_ids]
-    record_split(
-        session_id,
-        req.source_location_id,
-        new_id,
-        name,
-        event_ids=event_ids,
-    )
+    record_split(session_id, req.source_location_id, new_id, name, event_ids=event_ids)
     locations, edges = await _session_edges(session_id)
     return await _broadcast_map(session_id, locations, edges)
 
 
 @router.post('/overrides/connect', response_model=MapGraphResponse)
 async def connect_map_locations(
-    req: MapConnectionRequest,
-    _leader: DomainPlayer = Depends(_require_leader),
+    req: MapConnectionRequest, _leader: DomainPlayer = Depends(_require_leader)
 ) -> MapGraphResponse:
     """Add a link between two places. Leader-only."""
     session_id = session_registry.resolve(req.session_id)
@@ -451,10 +516,7 @@ async def connect_map_locations(
     _require_place(locations, req.from_location_id)
     _require_place(locations, req.to_location_id)
     record_added_connection(
-        session_id,
-        req.from_location_id,
-        req.to_location_id,
-        req.relationship or 'travel',
+        session_id, req.from_location_id, req.to_location_id, req.relationship or 'travel'
     )
     locations, edges = await _session_edges(session_id)
     return await _broadcast_map(session_id, locations, edges)
@@ -462,8 +524,7 @@ async def connect_map_locations(
 
 @router.post('/overrides/disconnect', response_model=MapGraphResponse)
 async def disconnect_map_locations(
-    req: MapConnectionRequest,
-    _leader: DomainPlayer = Depends(_require_leader),
+    req: MapConnectionRequest, _leader: DomainPlayer = Depends(_require_leader)
 ) -> MapGraphResponse:
     """Remove a link between two places. Leader-only."""
     session_id = session_registry.resolve(req.session_id)
@@ -471,10 +532,57 @@ async def disconnect_map_locations(
     _require_place(locations, req.from_location_id)
     _require_place(locations, req.to_location_id)
     record_removed_connection(
+        session_id, req.from_location_id, req.to_location_id, req.relationship
+    )
+    locations, edges = await _session_edges(session_id)
+    return await _broadcast_map(session_id, locations, edges)
+
+
+@router.post('/relationships', response_model=MapGraphResponse)
+async def tag_relationship(
+    req: MapRelationshipTagRequest, _leader: DomainPlayer = Depends(_require_leader)
+) -> MapGraphResponse:
+    """Tag a spatial relationship between two places by hand (Leader only).
+
+    Saved in map_overrides.json as an added connection, together with the
+    transcript line it was tagged on, so it survives regenerate.
+
+    Args:
+        req: The places, relationship and optional transcript line.
+
+    Returns:
+        MapGraphResponse with the session's updated graph.
+    """
+    session_id = await _validated_tag(req)
+    record_added_connection(
         session_id,
         req.from_location_id,
         req.to_location_id,
         req.relationship,
+        segment_start=req.segment_start,
+    )
+    locations, edges = await _session_edges(session_id)
+    return await _broadcast_map(session_id, locations, edges)
+
+
+@router.delete('/relationships', response_model=MapGraphResponse)
+async def untag_relationship(
+    req: MapRelationshipTagRequest, _leader: DomainPlayer = Depends(_require_leader)
+) -> MapGraphResponse:
+    """Remove a spatial relationship between two places (Leader only).
+
+    Removes a hand-tagged relationship and also hides a matching one that
+    was read automatically from the transcript.
+
+    Args:
+        req: The places and relationship to remove.
+
+    Returns:
+        MapGraphResponse with the session's updated graph.
+    """
+    session_id = await _validated_tag(req)
+    record_removed_connection(
+        session_id, req.from_location_id, req.to_location_id, req.relationship
     )
     locations, edges = await _session_edges(session_id)
     return await _broadcast_map(session_id, locations, edges)

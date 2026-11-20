@@ -60,11 +60,14 @@ class MapConnectionChange:
         relationship: Kind of link (travel, proximity, near, inside,
             north_of, east_of; south_of / west_of are stored reversed). None on a
             removal means drop every link between the pair.
+        segment_start: Start time (seconds) of the transcript line the DM
+            tagged this link on. None when it was not tagged on a line.
     """
 
     from_location_id: str
     to_location_id: str
     relationship: str | None = None
+    segment_start: float | None = None
 
 
 @dataclass
@@ -166,14 +169,18 @@ def _connection_to_dict(item: MapConnectionChange) -> dict:
     payload = {'from_location_id': item.from_location_id, 'to_location_id': item.to_location_id}
     if item.relationship is not None:
         payload['relationship'] = item.relationship
+    if item.segment_start is not None:
+        payload['segment_start'] = item.segment_start
     return payload
 
 
 def _connection_from_dict(item: object) -> MapConnectionChange:
     data = item if isinstance(item, dict) else {}
     relationship = data.get('relationship')
+    segment_start = data.get('segment_start')
     return MapConnectionChange(
         from_location_id=str(data.get('from_location_id', '')),
         to_location_id=str(data.get('to_location_id', '')),
         relationship=None if relationship is None else str(relationship),
+        segment_start=None if segment_start is None else float(segment_start),
     )

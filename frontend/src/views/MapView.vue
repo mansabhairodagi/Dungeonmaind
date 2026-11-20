@@ -12,6 +12,7 @@ import { useTimelineStore } from '@/stores/timeline'
 import type { MapEdge, MapEdgeType } from '@/api/mapAPI'
 import { relationshipLayout } from '@/utils/mapLayout'
 import MapEditPanel from '@/views/MapEditPanel.vue'
+import MapRelationshipTagger from '@/components/MapRelationshipTagger.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -683,6 +684,11 @@ watch(
             </div>
 
             <MapEditPanel />
+
+            <MapRelationshipTagger
+              v-if="sessionStore.isLeader && mapStore.dataSource === 'api'"
+              :place-id="mapStore.selectedNode.id"
+            />
 
             <div v-if="selectedEdge" class="link-card">
               <p class="sidebar-eyebrow">Selected path</p>

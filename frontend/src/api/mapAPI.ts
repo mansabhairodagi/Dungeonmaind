@@ -25,6 +25,8 @@ export interface MapEdge {
   from: string
   to: string
   type: MapEdgeType
+  /** The backend relationship name (`proximity`, `near`, `north_of`, ...). */
+  relationship?: string
 }
 
 /** The map graph the views consume, assembled from the backend endpoints. */
@@ -156,6 +158,7 @@ export function graphFromLocationsAndEdges(
       from: edge.from_location_id,
       to: edge.to_location_id,
       type: toEdgeType(edge.relationship),
+      relationship: edge.relationship,
     })),
   }
 }
@@ -287,4 +290,73 @@ export async function getPlaceMentions(sessionId: string, placeId: string): Prom
     sessionId,
   )
   return body.mentions ?? []
+}
+
+/** A transcript line on the map page, with the places it names. */
+export interface MapTranscriptLine {
+  start: number
+  end: number
+  text: string
+  speaker: string
+  location_ids: string[]
+}
+
+/** Relationships the DM can tag by hand. South and west are stored reversed. */
+export type TaggableRelationship =
+  | 'near'
+  | 'inside'
+  | 'north_of'
+  | 'south_of'
+  | 'east_of'
+  | 'west_of'
+
+/** A DM tag: `from` is <relationship> `to`, said on the line starting at `segment_start`. */
+export interface RelationshipTag {
+  from_location_id: string
+  to_location_id: string
+  relationship: TaggableRelationship
+  segment_start?: number | null
+}
+
+/**
+ * Fetch the session transcript with the places each line names.
+ * @param sessionId - The session identifier.
+ */
+export async function getTranscript(sessionId: string): Promise<MapTranscriptLine[]> {
+  const body = await getJson<{ lines: MapTranscriptLine[] }>('/map/transcript', sessionId)
+  return body.lines ?? []
+}
+
+async function sendTag(
+  method: 'POST' | 'DELETE',
+  sessionId: string,
+  playerId: string,
+  tag: RelationshipTag,
+): Promise<void> {
+  const res = await fetch(`${base()}/map/relationships`, {
+    method,
+    headers: { 'Content-Type': 'application/json', 'X-Player-Id': playerId },
+    body: JSON.stringify({ session_id: sessionId, ...tag }),
+  })
+  if (!res.ok) await throwMapError(res)
+}
+
+/**
+ * Tag a spatial relationship between two places (Leader only).
+ * @param sessionId - The session identifier.
+ * @param playerId - The leader's player id, sent as X-Player-Id.
+ * @param tag - The places, relationship and transcript line.
+ */
+export function tagRelationship(sessionId: string, playerId: string, tag: RelationshipTag) {
+  return sendTag('POST', sessionId, playerId, tag)
+}
+
+/**
+ * Remove a spatial relationship between two places (Leader only).
+ * @param sessionId - The session identifier.
+ * @param playerId - The leader's player id, sent as X-Player-Id.
+ * @param tag - The places and relationship to remove.
+ */
+export function untagRelationship(sessionId: string, playerId: string, tag: RelationshipTag) {
+  return sendTag('DELETE', sessionId, playerId, tag)
 }
